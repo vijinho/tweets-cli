@@ -1590,10 +1590,10 @@ exit;
  * @param  optional mixed $data to dump
  * @return boolean true if string output, false if not
  */
-function debug($string = '', &$data = '')
+function debug($string = '', $data = '')
 {
     if (DEBUG) {
-        echo trim('[D]' . $string) . "\n";
+        echo trim('[D ' . get_memory_used() . '] ' . $string) . "\n";
         if (!empty($data)) {
             print_r($data);
         }
@@ -1610,10 +1610,10 @@ function debug($string = '', &$data = '')
  * @param  optional mixed $data to dump
  * @return boolean true if string output, false if not
  */
-function verbose($string, &$data = '')
+function verbose($string, $data = '')
 {
     if (VERBOSE && !empty($string)) {
-        echo trim('[V]' . $string) . "\n";
+        echo trim('[V' .((DEBUG) ? ' ' . get_memory_used() : '') . '] ' . $string) . "\n";
         if (!empty($data)) {
             print_r($data);
         }
@@ -1683,7 +1683,7 @@ function get_commands($requirements = [])
  * @return mixed array $streams | boolean false if failure
  * @see    https://secure.php.net/manual/en/function.proc-open.php
  */
-function &shell_execute($cmd)
+function shell_execute($cmd)
 {
     $process = proc_open(
         $cmd,
@@ -1718,7 +1718,7 @@ function &shell_execute($cmd)
  * @return mixed string $stdout | Exception if failure
  * @see    shell_execute($cmd)
  */
-function &cmd_execute($cmd, $split = true, $exp = "/\n/")
+function cmd_execute($cmd, $split = true, $exp = "/\n/")
 {
     $result = shell_execute($cmd);
     if (!empty($result['stderr'])) {
@@ -1738,7 +1738,7 @@ function &cmd_execute($cmd, $split = true, $exp = "/\n/")
  * @param  string $dir to search
  * @return array [][basename => target] OR if group set [][id][basename => target]
  */
-function &files_tweets($dir, $group = false)
+function files_tweets($dir, $group = false)
 {
     $tfiles = [];
     $files  = files_list($dir);
@@ -1764,7 +1764,7 @@ function &files_tweets($dir, $group = false)
  * @param  string $dir to search
  * @return boolean $sort sort files or not
  */
-function &files_list($dir, $sort = true)
+function files_list($dir, $sort = true)
 {
     $commands = get_commands();
     $cmd      = $commands['find'] . ' ' . "$dir ";
@@ -1798,7 +1798,7 @@ function &files_list($dir, $sort = true)
  * @param  string $dir to search
  * @return array [][basename => target] OR if group set [][id][basename => target]
  */
-function &files_images($dir, $group = false)
+function files_images($dir, $group = false)
 {
     $images = [];
     $files  = files_list($dir);
@@ -1825,7 +1825,7 @@ function &files_images($dir, $group = false)
  * @param  string $dir to search
  * @return array [][basename => target] OR if group set [][id][basename => target]
  */
-function &files_videos($dir, $group)
+function files_videos($dir, $group)
 {
     $videos = [];
     $files  = files_list($dir);
@@ -1851,7 +1851,7 @@ function &files_videos($dir, $group)
  * @param  string $dir to search
  * @return array [][basename => target]
  */
-function &files_js($dir)
+function files_js($dir)
 {
     $js    = [];
     $files = files_list($dir);
@@ -1884,7 +1884,7 @@ function tweets_count($dir, $filename = 'tweet.js')
  * @param  array $keys array keys to explicitly remove regardless
  * @return array the trimmed down array
  */
-function &array_clear(&$array, $keys = [])
+function array_clear($array, $keys = [])
 {
     foreach ($array as $key => $value) {
         if (is_array($value)) {
@@ -1916,7 +1916,7 @@ function &array_clear(&$array, $keys = [])
  * @param string $from convert from encoding
  * @return array|string
  */
-function &to_charset(&$data, $to = 'UTF-8', $from = 'auto')
+function to_charset($data, $to = 'UTF-8', $from = 'auto')
 {
     if (is_numeric($data)) {
         if (is_float($data)) {
@@ -1945,7 +1945,7 @@ function &to_charset(&$data, $to = 'UTF-8', $from = 'auto')
  * @param  string $filename the json filename
  * @return string|array error string or data array
  */
-function &json_load($file)
+function json_load($file)
 {
     $data = [];
     if (file_exists($file)) {
@@ -1972,7 +1972,7 @@ function &json_load($file)
  * @param  string $filename the filename containing the tweets
  * @return mixed string error or array $data
  */
-function &json_load_twitter($dir, $filename)
+function json_load_twitter($dir, $filename)
 {
     $files = files_js($dir);
     $data  = to_charset(file_get_contents($files[$filename]));
@@ -2003,7 +2003,7 @@ function &json_load_twitter($dir, $filename)
  * @param  string optional $append string to append to the file
  * @return boolean true|string TRUE if success or string error message
  */
-function json_save($file, &$data, $prepend = '', $append = '')
+function json_save($file, $data, $prepend = '', $append = '')
 {
     if (TEST) {
         return true;
@@ -2033,7 +2033,7 @@ function json_save($file, &$data, $prepend = '', $append = '')
  * @param  string $filename the json filename
  * @return array $data
  */
-function &serialize_load($file)
+function serialize_load($file)
 {
     if (file_exists($file)) {
         $data = unserialize(file_get_contents($file));
@@ -2049,7 +2049,7 @@ function &serialize_load($file)
  * @param  array $data data to save
  * @return boolean result
  */
-function serialize_save($file, &$data)
+function serialize_save($file, $data)
 {
     if (TEST) {
         return true;

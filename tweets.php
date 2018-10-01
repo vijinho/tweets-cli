@@ -9,7 +9,6 @@
  * @copyright (c) Copyright 2018 Vijay Mahrra
  * @license GPLv3 (http://www.gnu.org/licenses/gpl-3.0.html)
  */
-
 ini_set('default_charset', 'utf-8');
 ini_set('mbstring.internal_encoding', 'utf-8');
 ini_set('mbstring.encoding_translation', 'On');
@@ -70,26 +69,26 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
 
 $do = [];
 foreach ([
- 'verbose'       => ['v', 'verbose'],
- 'test'          => ['t', 'test'],
- 'debug'         => ['d', 'debug'],
- 'test'          => ['t', 'test'],
- 'grailbird'     => ['g', 'grailbird'],
- 'list'          => [null, 'list'],
- 'list-js'       => [null, 'list-js'],
- 'list-images'   => [null, 'list-images'],
- 'list-videos'   => [null, 'list-videos'],
- 'tweets-count'  => [null, 'tweets-count'],
- 'tweets-all'    => ['a', 'tweets-all'],
- 'no-retweets'   => [null, 'no-retweets'],
- 'no-mentions'   => [null, 'no-mentions'],
- 'urls-expand'   => [null, 'urls-expand'],
- 'urls-resolve'  => ['u', 'urls-resolve'],
- 'offline'       => ['o', 'offline'],
- 'local'         => ['l', 'local'],
- 'unlink'        => ['x', 'delete'],
- 'keys-remove'   => ['r', 'keys-remove'],
- 'keys-filter'   => ['k', 'keys-filter'],
+'verbose'      => ['v', 'verbose'],
+ 'test'         => ['t', 'test'],
+ 'debug'        => ['d', 'debug'],
+ 'test'         => ['t', 'test'],
+ 'grailbird'    => ['g', 'grailbird'],
+ 'list'         => [null, 'list'],
+ 'list-js'      => [null, 'list-js'],
+ 'list-images'  => [null, 'list-images'],
+ 'list-videos'  => [null, 'list-videos'],
+ 'tweets-count' => [null, 'tweets-count'],
+ 'tweets-all'   => ['a', 'tweets-all'],
+ 'no-retweets'  => [null, 'no-retweets'],
+ 'no-mentions'  => [null, 'no-mentions'],
+ 'urls-expand'  => [null, 'urls-expand'],
+ 'urls-resolve' => ['u', 'urls-resolve'],
+ 'offline'      => ['o', 'offline'],
+ 'local'        => ['l', 'local'],
+ 'unlink'       => ['x', 'delete'],
+ 'keys-remove'  => ['r', 'keys-remove'],
+ 'keys-filter'  => ['k', 'keys-filter'],
 ] as $i => $opts) {
     $do[$i] = (int) (array_key_exists($opts[0], $options) || array_key_exists($opts[1],
             $options));
@@ -343,9 +342,11 @@ if (!empty($options['date-from'])) {
 if (!empty($date_from)) {
     $date_from = strtotime($date_from);
     if (false === $date_from) {
-        $errors[] = sprintf("Unable to parse --date-from: %s", $options['date-from']);
+        $errors[] = sprintf("Unable to parse --date-from: %s",
+            $options['date-from']);
     }
-    verbose(sprintf("Filtering tweets FROM date/time '%s': %s", $options['date-from'], date('r', $date_from)));
+    verbose(sprintf("Filtering tweets FROM date/time '%s': %s",
+            $options['date-from'], date('r', $date_from)));
 }
 
 if (!empty($options['date-to'])) {
@@ -356,7 +357,8 @@ if (!empty($date_to)) {
     if (false === $date_to) {
         $errors[] = sprintf("Unable to parse --date-to: %s", $options['date-to']);
     }
-    verbose(sprintf("Filtering tweets TO date/time '%s': %s", $options['date-to'], date('r', $date_to)));
+    verbose(sprintf("Filtering tweets TO date/time '%s': %s",
+            $options['date-to'], date('r', $date_to)));
 }
 
 //-----------------------------------------------------------------------------
@@ -367,9 +369,11 @@ if (!empty($options['regexp'])) {
 }
 if (!empty($regexp)) {
     if (false === preg_match($regexp, null)) {
-        $errors[] = sprintf("Unable to validate regular expression: %s", $options['regexp']);
+        $errors[] = sprintf("Unable to validate regular expression: %s",
+            $options['regexp']);
     }
-    verbose(sprintf("Filtering tweets with regular expression '%s'", $options['regexp']));
+    verbose(sprintf("Filtering tweets with regular expression '%s'",
+            $options['regexp']));
 }
 $regexp_save = array_key_exists('regexp-save', $options);
 
@@ -439,7 +443,7 @@ if ($do['tweets-count']) {
     verbose('Counting tweets…');
 
     $tweets_count = tweets_count($dir);
-    $output = $tweets_count;
+    $output       = $tweets_count;
     verbose("Tweets Count: $tweets_count");
     goto output;
 }
@@ -565,8 +569,8 @@ foreach ($tweets as $t => $tweet) {
         } else if (!empty($regexp_save)) {
             // add regular expression result to tweet
             $tweet['regexps'][] = [
-                'regexp' => $regexp,
-                'matches'=> $matches
+                'regexp'  => $regexp,
+                'matches' => $matches
             ];
         }
     }
@@ -1165,11 +1169,11 @@ if ($do['urls-resolve']) {
                 ];
             }
         }
-        $tweet['entities']['urls'] = $tweet_urls;
+        $tweet['entities']['urls']   = $tweet_urls;
         $tweet['display_text_range'] = [0, strlen($tweet['text'])];
 
         ksort($tweet);
-        $tweets[$tweet_id]           = $tweet;
+        $tweets[$tweet_id] = $tweet;
     }
     ksort($tweets);
 
@@ -1285,8 +1289,10 @@ if ($do['grailbird']) {
         $month_file          = date('Y_m', $tweet['created_at_unixtime']);
 
         // remove keys not in grailbord
-        foreach (['truncated', 'retweet_count', 'retweeted', 'favorited', 'favorite_count', 'possibly_sensitive',
-        'lang', 'display_text_range', 'full_text', 'created_at_unixtime', 'extended_entities'] as $key) {
+        foreach (['truncated', 'retweet_count', 'retweeted', 'favorited', 'favorite_count',
+        'possibly_sensitive',
+        'lang', 'display_text_range', 'full_text', 'created_at_unixtime', 'extended_entities'] as
+                $key) {
             if (array_key_exists($key, $tweet)) {
                 unset($tweet[$key]);
             }
@@ -1302,7 +1308,8 @@ if ($do['grailbird']) {
     }
 
     // write the monthly tweets array to individual files
-    verbose(sprintf("Writing %d year_month.js data files for grailbird…", count($month_files)));
+    verbose(sprintf("Writing %d year_month.js data files for grailbird…",
+            count($month_files)));
     krsort($month_files);
     $tweet_index = []; // for tweet_index.js file
     foreach ($month_files as $yyyymm => $month_tweets) {
@@ -1464,7 +1471,7 @@ function verbose($string, &$data = '')
 function get_memory_used()
 {
     return(
-        ceil(memory_get_usage() / 1024 / 1024).'/'.
+        ceil(memory_get_usage() / 1024 / 1024) . '/' .
         ceil(memory_get_peak_usage() / 1024 / 1024));
 }
 
@@ -1876,11 +1883,11 @@ function json_save($file, &$data, $prepend = '', $append = '')
         $data = to_charset($data);
     }
     if (!file_put_contents($file,
-            $prepend . json_encode($data,
-                JSON_PRETTY_PRINT) . $append)) {
+            $prepend . json_encode($data, JSON_PRETTY_PRINT) . $append)) {
         $error = json_last_error_msg();
         if (empty($error)) {
-            $error = sprintf("Unknown Error writing file: '%s' (Prepend: '%s', Append: '%s')", $file, $prepend, $append);
+            $error = sprintf("Unknown Error writing file: '%s' (Prepend: '%s', Append: '%s')",
+                $file, $prepend, $append);
         }
         return $error;
     }

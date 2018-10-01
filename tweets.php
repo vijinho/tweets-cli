@@ -391,7 +391,6 @@ if (!empty($errors)) {
 if ($do['list'] || $do['list-images'] || $do['list-videos'] || $do['list-js'] || $do['local']
     || $do['dupes']) {
     debug('Pre-fetching files list from: ' . $dir);
-
     $files = files_list($dir);
     if (empty($files)) {
         $errors[] = "No files found!";
@@ -404,7 +403,6 @@ if ($do['list'] || $do['list-images'] || $do['list-videos'] || $do['list-js'] ||
 // $files, $images, $videos, $js and append to $output
 if ($do['list']) {
     verbose('Listing files…');
-
     debug('Files:', $files);
     $output = $files;
     goto output;
@@ -900,10 +898,6 @@ if ($do['local']) {
         // a change occurred, url was stripped
         if ($full_text !== $tweet['text']) {
             //debug(sprintf("Modified:\n\t%s\n\t%s", $full_text, $tweet['text']));
-        }
-
-        if (!empty($tweet['images'])) {
-            debug($tweet_id, $tweet['images']);
         }
 
         $tweets[$tweet_id] = $tweet;
@@ -1649,7 +1643,15 @@ function get_memory_used()
 function get_commands($requirements = [])
 {
     static $commands = []; // cli command paths
-    if (!empty($commands)) {
+
+    $found = true;
+    foreach ($requirements as $tool => $description) {
+        if (!array_key_exists($tool, $commands)) {
+            $found = false;
+            break;
+        }
+    }
+    if ($found) {
         return $commands;
     }
 
@@ -1736,12 +1738,6 @@ function &cmd_execute($cmd, $split = true, $exp = "/\n/")
  */
 function &files_tweets($dir, $group = false)
 {
-    // cache results
-    static $results = [];
-    if (!empty($results[$dir][$group])) {
-        return $results[$dir][$group];
-    }
-
     $tfiles = [];
     $files  = files_list($dir);
     foreach ($files as $f => $file) {
@@ -1756,7 +1752,6 @@ function &files_tweets($dir, $group = false)
         }
     }
 
-    $results[$dir][$group] = $videos;
     return $tfiles;
 }
 
@@ -1769,12 +1764,6 @@ function &files_tweets($dir, $group = false)
  */
 function &files_list($dir, $sort = true)
 {
-    // cache results
-    static $results = [];
-    if (!empty($results[$dir])) {
-        return $results[$dir];
-    }
-
     $commands = get_commands();
     $cmd      = $commands['find'] . ' ' . "$dir ";
     $cmd      .= '-type f -print';
@@ -1797,8 +1786,6 @@ function &files_list($dir, $sort = true)
         natcasesort($files);
     }
 
-    $results[$dir] = $files;
-
     return $files;
 }
 
@@ -1811,12 +1798,6 @@ function &files_list($dir, $sort = true)
  */
 function &files_images($dir, $group = false)
 {
-    // cache results
-    static $results = [];
-    if (!empty($results[$dir][$group])) {
-        return $results[$dir][$group];
-    }
-
     $images = [];
     $files  = files_list($dir);
     foreach ($files as $f => $file) {
@@ -1832,7 +1813,6 @@ function &files_images($dir, $group = false)
         }
     }
 
-    $results[$dir][$group] = $videos;
     return $images;
 }
 
@@ -1845,12 +1825,6 @@ function &files_images($dir, $group = false)
  */
 function &files_videos($dir, $group)
 {
-    // cache results
-    static $results = [];
-    if (!empty($results[$dir][$group])) {
-        return $results[$dir][$group];
-    }
-
     $videos = [];
     $files  = files_list($dir);
     foreach ($files as $f => $file) {
@@ -1865,7 +1839,6 @@ function &files_videos($dir, $group)
         }
     }
 
-    $results[$dir][$group] = $videos;
     return $videos;
 }
 
@@ -1878,12 +1851,6 @@ function &files_videos($dir, $group)
  */
 function &files_js($dir)
 {
-    // cache results
-    static $results = [];
-    if (!empty($results[$dir])) {
-        return $results[$dir];
-    }
-
     $js    = [];
     $files = files_list($dir);
     foreach ($files as $f => $file) {
@@ -1892,7 +1859,6 @@ function &files_js($dir)
         }
     }
 
-    $results[$dir] = $js;
     return $js;
 }
 

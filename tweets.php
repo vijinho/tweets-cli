@@ -62,6 +62,7 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'offline',
     'local',
     'delete',
+    'dupes',
     'keys-remove:',
     'keys-filter:'
     ]);
@@ -87,6 +88,7 @@ foreach ([
  'offline'      => ['o', 'offline'],
  'local'        => ['l', 'local'],
  'unlink'       => ['x', 'delete'],
+ 'dupes'        => [null, 'dupes'],
  'keys-remove'  => ['r', 'keys-remove'],
  'keys-filter'  => ['k', 'keys-filter'],
 ] as $i => $opts) {
@@ -148,11 +150,13 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t-o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)",
         "\t-l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)",
         "\t-x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files",
+        "\t     --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!",
         "\t-r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')",
         "\t-k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)",
         "\t     --regexp                 Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
         "\t     --regexp-save            Save --regexp results in the tweet under the key 'regexps'",
         "\nExamples:",
+        "Report duplicate tweet media files and output to 'dupes.json':\n\tphp tweets-cli/tweets.php -fdupes.json --dupes",
         "Show total tweets in tweets file:\n\tphp tweets.php --tweets-count --verbose",
         "Show javascript files in backup folder:\n\tphp tweets.php --list-js --debug",
         "Resolve all URLs in 'tweet.js' file, writing output to 'tweet.json':\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json",
@@ -163,7 +167,8 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "Generate grailbird files with expanded/resolved URLs:\n\tphp tweets.php --tweets-all --debug --urls-expand --urls-resolve --grailbird=grailbird",
         "Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:\n\tphp tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --grailbird=grailbird",
         "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:\n\tphp tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --local --grailbird=grailbird",
-        "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:\n\tphp tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird"
+        "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:\n\tphp tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird",
+        "Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':\n\tphp tweets-cli/tweets.php --delete --dupes",
     ]) . "\n";
 
     // goto jump here if there's a problem
@@ -383,7 +388,8 @@ if (!empty($errors)) {
 
 //-----------------------------------------------------------------------------
 // pre-fetch all files in advance if a list command-line option was specified
-if ($do['list'] || $do['list-images'] || $do['list-videos'] || $do['list-js'] || $do['local']) {
+if ($do['list'] || $do['list-images'] || $do['list-videos'] || $do['list-js'] || $do['local']
+    || $do['dupes']) {
     debug('Pre-fetching files list from: ' . $dir);
 
     $files = files_list($dir);
@@ -401,6 +407,138 @@ if ($do['list']) {
 
     debug('Files:', $files);
     $output = $files;
+    goto output;
+}
+
+//-----------------------------------------------------------------------------
+// delete duplicates
+if ($do['dupes']) {
+    verbose("Finding duplicate files...");
+
+    // create file keys index of key => paths
+    $keys = [];
+    foreach ($files as $file => $path) {
+        // split on - because filename is {tweet_id}-{media_id}.{ext}
+        if (!preg_match("/(?P<tweet_id>^[\d]+)-(?P<key>[^\.]+)\.(?P<ext>.+)/",
+                $file, $parts)) {
+            continue;
+        }
+        $key = $parts['key']; // e.g. EYt4vLLw.jpg
+        if (array_key_exists($key, $keys)) {
+            verbose(sprintf("Duplicate file found: %s\n\t%s\n\t%s", $key,
+                    $keys[$key][0], $path));
+        }
+        $keys[$key][] = $path;
+    }
+
+    // filter file keys to remove where only 1 match occurred for the key
+    foreach ($keys as $key => $paths) {
+        // skip where the file only occurred once
+        if (1 === count($paths)) {
+            unset($keys[$key]);
+            continue;
+        }
+    }
+
+    if (empty($keys)) {
+        verbose("No duplicate files found.");
+        goto output;
+    }
+
+    verbose(sprintf("Files duplicated: %d", count($keys)));
+
+    // go to end if no --delete specified
+    $output = $keys;
+    if (!UNLINK) {
+        goto output;
+    }
+
+    // we are going to delete unless used with --test
+    if (TEST) {
+        verbose("TEST: No files will actually be deleted!");
+    }
+
+    $deletes = [];
+
+    // find deletable non tweets_media files
+    foreach ($keys as $filename => $paths) {
+        foreach ($paths as $p => $path) {
+            // delete the 'direct_message_media' and 'moments_tweets_media' dupe files first but not 'media_tweets'
+            if (false !== stristr($path, '/direct_message_media/') ||
+                false !== stristr($path, '/moments_tweets_media/')) {
+                $deletes[] = $path;
+                unset($paths[$p]);
+            }
+        }
+        sort($paths); // need to do this to reset the index numbering to 0, 1, 2...
+        $keys[$filename] = $paths;
+    }
+
+    // find all other duplicated files to delete and also rename
+    $renames = [];
+    foreach ($keys as $key => $paths) {
+        if (1 === count($paths)) {
+            // we only have 1 file left for the key, so we keep it
+            // rename the file now to {id}.{ext}
+            $renames[$paths[0]] = stristr($paths[0], $key);
+            continue;
+        }
+
+        // keep the first file
+        $renames[$paths[0]] = stristr($paths[0], $key);
+        unset($paths[0]); // remove first element
+        if (empty($paths)) {
+            continue;
+        }
+
+        // all other files for the key can be left can be deleted
+        foreach ($paths as $p => $path) {
+            $deletes[] = $path;
+        }
+        unset($keys[$key]);
+    }
+
+    ksort($renames);
+    if (DEBUG) {
+        debug(sprintf("Files to rename: %d", count($renames)), $renames);
+    } else {
+        verbose(sprintf("Files to rename: %d", count($renames)));
+    }
+    foreach ($renames as $from => $to) {
+        // prepend path of $from file to $to before renaming
+        $to = substr($from, 0, strrpos($from, '/') + 1) . $to;
+        if (TEST) {
+            verbose("Renaming (NOT!): $from => $to");
+        } else {
+            verbose("Renaming: $from => $to");
+            if (!rename($from, $to)) {
+                $errors[] = "Error renaming file: $from => $to";
+            }
+        }
+    }
+
+    ksort($deletes);
+    if (DEBUG) {
+        debug(sprintf("Files to delete: %d", count($deletes)), $deletes);
+    } else {
+        verbose(sprintf("Files to delete: %d", count($deletes)));
+    }
+    foreach ($deletes as $path) {
+        if (TEST) {
+            verbose('Deleting (NOT!): ' . $path);
+        } else {
+            verbose('Deleting: ' . $path);
+            if (!unlink($path)) {
+                $errors[] = "Error deleting file: $path";
+            }
+        }
+    }
+
+    if (empty($errors)) {
+        goto errors;
+    }
+
+    $output = [];
     goto output;
 }
 
@@ -683,10 +821,16 @@ if ($do['local']) {
         if (!empty($tweet['entities']['media'])) {
             foreach ($tweet['entities']['media'] as $entity) {
                 // construct the local image filename and check it exists
-                $filename = $entity['source_status_id'] . '-' . basename($entity['media_url']);
-                if (array_key_exists($filename, $images)) {
-                    $tweet['images'][$filename] = $images[$filename];
+                $media_file = basename($entity['media_url']);
+                // check if the image filename is just {id}.{ext} instead of {tweet_id}-{id}.{ext}
+                foreach ([
+                $media_file, $entity['source_status_id'] . '-' . $media_file
+                ] as $file) {
+                    if (array_key_exists($file, $images)) {
+                        $tweet['images'][$file] = $images[$file];
+                    }
                 }
+                // check if the image filename is just {id}.{ext} instead of {tweet_id}-{id}.{ext}
             }
         }
 
@@ -695,46 +839,54 @@ if ($do['local']) {
 
             foreach ($tweet['extended_entities']['media'] as $entity) {
                 // construct the local video filename and check if it exists
-                $filename  = $tweet['id'] . '-' . basename($entity['media_url']);
-                // drop the video url from the 'text'
-                $search[]  = $entity['url'];
-                $replace[] = '';
-                if (array_key_exists($filename, $videos)) {
-                    $tweet['videos'][$filename] = $videos[$filename];
-                }
-
-                // detect the video files if different bitrates for same content
-                if (!empty($entity['video_info']['variants'])) {
-                    $bitrates = []; // store filenames of local videos of different bitrates
-
-                    foreach ($entity['video_info']['variants'] as $video) {
-                        $vid      = basename($video['url']);
-                        $filename = $tweet['id'] . '-' . $vid;
-                        // check if the video file exists by detecting filename to search for
-                        if (array_key_exists($filename, $videos)) {
-                            $tweet['videos'][$filename]  = $videos[$filename];
-                            $bitrates[$video['bitrate']] = $filename;
-                        } else {
-                            $filename = substr($filename, 0,
-                                strpos($filename, '?'));
-                            if (array_key_exists($filename, $videos)) {
-                                $tweet['videos'][$filename]  = $videos[$filename];
-                                $bitrates[$video['bitrate']] = $filename;
-                            }
-                        }
+                $media_file = basename($entity['media_url']);
+                // check if the image filename is just {id}.{ext} instead of {tweet_id}-{id}.{ext}
+                foreach ([
+                $media_file, $tweet['id'] . '-' . $media_file
+                ] as $file) {
+                    // drop the video url from the 'text'
+                    $search[]  = $entity['url'];
+                    $replace[] = '';
+                    if (array_key_exists($file, $videos)) {
+                        $tweet['videos'][$file] = $videos[$file];
                     }
 
-                    // remove the low bitrate files from new 'videos' attribute
-                    if (!empty($bitrates)) {
-                        $max  = max(array_keys($bitrates));
-                        $keep = $bitrates[$max];
-                        foreach ($tweet['videos'] as $filename => $path) {
-                            if ($keep !== $filename && file_exists($path)) {
-                                // remove low bit-rate files to space space
-                                if (!array_key_exists($path, $to_delete)) {
-                                    $to_delete[$path] = $path; // these are to delete if CLI option specified
+                    // detect the video files if different bitrates for same content
+                    if (!empty($entity['video_info']['variants'])) {
+                        $bitrates = []; // store filenames of local videos of different bitrates
+
+                        foreach ($entity['video_info']['variants'] as $video) {
+                            $vid = basename($video['url']);
+                            foreach ([
+                            $vid, $tweet['id'] . '-' . $vid
+                            ] as $filename) {
+                                // check if the video file exists by detecting filename to search for
+                                if (array_key_exists($filename, $videos)) {
+                                    $tweet['videos'][$filename]  = $videos[$filename];
+                                    $bitrates[$video['bitrate']] = $filename;
+                                } else {
+                                    $filename = substr($filename, 0,
+                                        strpos($filename, '?'));
+                                    if (array_key_exists($filename, $videos)) {
+                                        $tweet['videos'][$filename]  = $videos[$filename];
+                                        $bitrates[$video['bitrate']] = $filename;
+                                    }
                                 }
-                                unset($tweet['videos'][$filename]);
+                            }
+
+                            // remove the low bitrate files from new 'videos' attribute
+                            if (!empty($bitrates)) {
+                                $max  = max(array_keys($bitrates));
+                                $keep = $bitrates[$max];
+                                foreach ($tweet['videos'] as $filename => $path) {
+                                    if ($keep !== $filename && file_exists($path)) {
+                                        // remove low bit-rate files to space space
+                                        if (!array_key_exists($path, $to_delete)) {
+                                            $to_delete[$path] = $path; // these are to delete if CLI option specified
+                                        }
+                                        unset($tweet['videos'][$filename]);
+                                    }
+                                }
                             }
                         }
                     }
@@ -748,6 +900,10 @@ if ($do['local']) {
         // a change occurred, url was stripped
         if ($full_text !== $tweet['text']) {
             //debug(sprintf("Modified:\n\t%s\n\t%s", $full_text, $tweet['text']));
+        }
+
+        if (!empty($tweet['images'])) {
+            debug($tweet_id, $tweet['images']);
         }
 
         $tweets[$tweet_id] = $tweet;
@@ -773,19 +929,19 @@ if ($do['local']) {
     foreach ($content as $type => $results) {
 
         foreach ($results as $id => $media_files) {
-
-            // check tweet exists, if so, merge files into files keys
-            if (!array_key_exists($id, $tweets)) {
+            if (!is_numeric($id) || !array_key_exists($id, $tweets)) {
                 continue;
             }
-
+            if (!is_array($media_files)) {
+                $media_files = [$media_files];
+            }
+            // check tweet exists, if so, merge files into files keys
             //debug(sprintf("Local content '%s' found for tweet id: %d", $type, $tweets[$id]['id']));
             array_merge($tweets[$id][$type], $media_files);
             $tweets[$id][$type] = $media_files;
         }
     }
 }
-
 
 //-----------------------------------------------------------------------------
 // filter tweets on the keys specified on the  command-line
@@ -1101,25 +1257,29 @@ if ($do['urls-resolve']) {
         if ($do['local']) {
             $found_entities = [];
             foreach ($tweet['entities']['media'] as $e => $entity) {
-                $key = $tweet_id . '-' . basename($entity['media_url']);
-                if (!array_key_exists($key, $files)) {
-                    continue;
-                }
+                $media_url = basename($entity['media_url']);
+                foreach ([
+                $media_url, $tweet_id . '-' . $media_url
+                ] as $key) {
+                    if (!array_key_exists($key, $files)) {
+                        continue;
+                    }
 
-                $i                              = strlen($tweet['text']); // will append to tweet after!
-                $path                           = $files[$key];
-                $url                            = 'file://' . $path;
-                $entity                         = array_replace_recursive($entity,
-                    [
-                    'url'             => '',
-                    'expanded_url'    => '',
-                    'media_url'       => $url,
-                    'media_url_https' => $url,
-                    'display_url'     => '',
-                    'indices'         => [$i, $i + 1],
-                ]);
-                $tweet['entities']['media'][$e] = $entity;
-                $found_entities[$key]           = $entity;
+                    $i                              = strlen($tweet['text']); // will append to tweet after!
+                    $path                           = $files[$key];
+                    $url                            = 'file://' . $path;
+                    $entity                         = array_replace_recursive($entity,
+                        [
+                        'url'             => '',
+                        'expanded_url'    => '',
+                        'media_url'       => $url,
+                        'media_url_https' => $url,
+                        'display_url'     => '',
+                        'indices'         => [$i, $i + 1],
+                    ]);
+                    $tweet['entities']['media'][$e] = $entity;
+                    $found_entities[$key]           = $entity;
+                }
             }
 
             // append this to the end of the tweet if entities found
@@ -1129,11 +1289,15 @@ if ($do['urls-resolve']) {
 
             // update extended_entities with the above
             foreach ($tweet['extended_entities']['media'] as $e => $entity) {
-                $key = $tweet_id . '-' . basename($entity['media_url']);
-                if (array_key_exists($key, $found_entities)) {
-                    $entity                                  = array_replace_recursive($entity,
-                        $found_entities[$key]);
-                    $tweet['extended_entities']['media'][$e] = $entity;
+                $media_url = basename($entity['media_url']);
+                foreach ([
+                $media_url, $tweet_id . '-' . $media_url
+                ] as $key) {
+                    if (array_key_exists($key, $found_entities)) {
+                        $entity                                  = array_replace_recursive($entity,
+                            $found_entities[$key]);
+                        $tweet['extended_entities']['media'][$e] = $entity;
+                    }
                 }
             }
         }
@@ -1416,7 +1580,7 @@ if (!empty($output)) {
     }
 }
 
-debug(get_memory_used());
+debug(sprintf("Memory used (%s) MB (current/peak).", get_memory_used()));
 echo "\n";
 exit;
 
@@ -1433,7 +1597,7 @@ exit;
 function debug($string = '', &$data = '')
 {
     if (DEBUG) {
-        echo "[D] $string\n";
+        echo trim('[D]' . $string) . "\n";
         if (!empty($data)) {
             print_r($data);
         }
@@ -1453,7 +1617,7 @@ function debug($string = '', &$data = '')
 function verbose($string, &$data = '')
 {
     if (VERBOSE && !empty($string)) {
-        echo "[V] $string\n";
+        echo trim('[V]' . $string) . "\n";
         if (!empty($data)) {
             print_r($data);
         }
@@ -1582,7 +1746,7 @@ function &files_tweets($dir, $group = false)
     $files  = files_list($dir);
     foreach ($files as $f => $file) {
         if (stristr($file, '/tweet_files/') !== false) {
-            if (preg_match('/^(?<id>[0-9]+)_.+/', $f, $matches)) {
+            if (preg_match('/^(?<id>[0-9]+)[-_][^\.]+\..+/', $f, $matches)) {
                 if ($group) {
                     $tfiles[$matches['id']][$f] = $file;
                 } else {
@@ -1658,13 +1822,13 @@ function &files_images($dir, $group = false)
     foreach ($files as $f => $file) {
         if (stristr($f, '.jpg') !== false || stristr($f, '.png') !== false || stristr($f,
                 '.gif') !== false) {
-            if (preg_match('/^(?<id>[0-9]+)-.+/', $f, $matches)) {
+            if (preg_match('/^(?<id>[0-9]+)[-_][^\.]+\..+/', $f, $matches)) {
                 if ($group) {
                     $images[$matches['id']][$f] = $file;
-                } else {
-                    $images[$f] = $file;
+                    continue;
                 }
             }
+            $images[$f] = $file;
         }
     }
 
@@ -1691,13 +1855,13 @@ function &files_videos($dir, $group)
     $files  = files_list($dir);
     foreach ($files as $f => $file) {
         if (stristr($f, '.mp4') !== false) {
-            if (preg_match('/^(?<id>[0-9]+)-.+/', $f, $matches)) {
+            if (preg_match('/^(?<id>[0-9]+)[-_][^\.]+\..+/', $f, $matches)) {
                 if ($group) {
                     $videos[$matches['id']][$f] = $file;
-                } else {
-                    $videos[$f] = $file;
+                    continue;
                 }
             }
+            $videos[$f] = $file;
         }
     }
 

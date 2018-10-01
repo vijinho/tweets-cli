@@ -59,7 +59,7 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
         -r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')
         -k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)
              --regexp                 Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php
-             --regexp-save            Save --regexp results in the tweet under the key 'regexps'
+             --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given
 ```
 
 ## Usage Examples:
@@ -104,6 +104,9 @@ Generate grailbird files with expanded/resolved URLs using offline saved url dat
 
 Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':
         `php tweets-cli/tweets.php --delete --dupes`
+
+Extract the first couple of words of the tweet and name the saved regexp 'words'
+        `tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words`
 
 ## Note
 

@@ -54,7 +54,7 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'date-from:',
     'date-to:',
     'regexp:',
-    'regexp-save',
+    'regexp-save:',
     'no-retweets',
     'no-mentions',
     'urls-expand',
@@ -153,8 +153,8 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t     --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!",
         "\t-r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')",
         "\t-k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)",
-        "\t     --regexp                 Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
-        "\t     --regexp-save            Save --regexp results in the tweet under the key 'regexps'",
+        "\t     --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
+        "\t     --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given",
         "\nExamples:",
         "Report duplicate tweet media files and output to 'dupes.json':\n\tphp tweets-cli/tweets.php -fdupes.json --dupes",
         "Show total tweets in tweets file:\n\tphp tweets.php --tweets-count --verbose",
@@ -163,12 +163,13 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "Resolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json --grailbird=grailbird",
         "Get tweets, only id, created and text keys:\n\tphp tweets.php -v -a -o -u --keys-filter=id,created_at,text",
         "Get tweets from 1 Jan 2017 to 'last friday':\n\tphp tweets.php -v -a -o -u --date-from '2017-01-01' --date-to='last friday'",
-        "Filter tweet text on word 'hegemony' since last year\n\t php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save",
+        "Filter tweet text on word 'hegemony' since last year\n\t php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony",
         "Generate grailbird files with expanded/resolved URLs:\n\tphp tweets.php --tweets-all --debug --urls-expand --urls-resolve --grailbird=grailbird",
         "Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:\n\tphp tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --grailbird=grailbird",
         "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:\n\tphp tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --local --grailbird=grailbird",
         "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:\n\tphp tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird",
         "Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':\n\tphp tweets-cli/tweets.php --delete --dupes",
+        "Extract the first couple of words of the tweet and name the saved regexp 'words':\n\ttweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words"
     ]) . "\n";
 
     // goto jump here if there's a problem
@@ -380,7 +381,7 @@ if (!empty($regexp)) {
     verbose(sprintf("Filtering tweets with regular expression '%s'",
             $options['regexp']));
 }
-$regexp_save = array_key_exists('regexp-save', $options);
+$regexp_save = array_key_exists('regexp-save', $options) ?  $options['regexp-save'] : false;
 
 if (!empty($errors)) {
     goto errors;
@@ -705,6 +706,7 @@ foreach ($tweets as $t => $tweet) {
         } else if (!empty($regexp_save)) {
             // add regular expression result to tweet
             $tweet['regexps'][] = [
+                'name'    => $regexp_save,
                 'regexp'  => $regexp,
                 'matches' => $matches
             ];

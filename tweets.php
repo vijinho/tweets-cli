@@ -1992,7 +1992,7 @@ function files_js($dir)
  *
  * @param  string $dir to search default filename 'tweet.js' for
  * @param  string $filename the filename containing the tweets
- * @return array $data
+ * @return integer $data
  */
 function tweets_count($dir, $filename = 'tweet.js')
 {
@@ -2064,7 +2064,7 @@ function to_charset($data, $to = 'UTF-8', $from = 'auto')
 /**
  * Load a json file and return a php array of the content
  *
- * @param  string $filename the json filename
+ * @param  string $file the json filename
  * @return string|array error string or data array
  */
 function json_load($file)
@@ -2119,7 +2119,7 @@ function json_load_twitter($dir, $filename)
 /**
  * Save data array to a json
  *
- * @param  string $filename the json filename
+ * @param  string $file the json filename
  * @param  array $data data to save
  * @param  string optional $prepend string to prepend in the file
  * @param  string optional $append string to append to the file
@@ -2152,7 +2152,7 @@ function json_save($file, $data, $prepend = '', $append = '')
 /**
  * Load a serialized php data file and return it
  *
- * @param  string $filename the json filename
+ * @param  string $file the json filename
  * @return array $data
  */
 function serialize_load($file)
@@ -2167,7 +2167,7 @@ function serialize_load($file)
 /**
  * Save data array to a php serialized data
  *
- * @param  string $filename the json filename
+ * @param  string $file the json filename
  * @param  array $data data to save
  * @return boolean result
  */

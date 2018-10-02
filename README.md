@@ -47,6 +47,7 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
              --list-images            Only list all image files in export folder and halt
              --list-videos            Only list all video files in export folder and halt
              --list-users             Only list all users in tweets, (default filename 'users.json') and halt
+             --list-missing-media     List media URLs for which no local file exists and halt (implies --local)
              --tweets-count           Only show the total number of tweets and halt
         -i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'
         -a,  --tweets-all             Get all tweets (further operations below will depend on this)

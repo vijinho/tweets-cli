@@ -44,6 +44,7 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'format:',
     'filename:',
     'grailbird:',
+    'grailbird-import:',
     'list',
     'list-js',
     'list-images',
@@ -68,7 +69,6 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'keys-filter:'
     ]);
 
-
 $do = [];
 foreach ([
 'verbose'      => ['v', 'verbose'],
@@ -76,6 +76,7 @@ foreach ([
  'debug'        => ['d', 'debug'],
  'test'         => ['t', 'test'],
  'grailbird'    => ['g', 'grailbird'],
+ 'grailbird-import'    => [null, 'grailbird-import'],
  'list'         => [null, 'list'],
  'list-js'      => [null, 'list-js'],
  'list-images'  => [null, 'list-images'],
@@ -136,6 +137,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t     --format={json}          Output format for script data: txt|php|json (default)",
         "\t-f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'",
         "\t-g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir",
+        "\t     --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.",
         "\t     --list                   Only list all files in export folder and halt - filename",
         "\t     --list-js                Only List all javascript files in export folder and halt",
         "\t     --list-images            Only list all image files in export folder and halt",
@@ -173,7 +175,9 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:\n\tphp tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --local --grailbird=grailbird",
         "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:\n\tphp tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird",
         "Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':\n\tphp tweets-cli/tweets.php --delete --dupes",
-        "Extract the first couple of words of the tweet and name the saved regexp 'words':\n\ttweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words"
+        "Extract the first couple of words of the tweet and name the saved regexp 'words':\n\ttweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words",
+        "Import grailbird files from 'import/data/js/tweets':\n\tphp tweets.php --grailbird-import=import/data/js/tweets --debug`",
+        "Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:\n\tphp tweets-cli/tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose`"
     ]) . "\n";
 
     // goto jump here if there's a problem
@@ -296,6 +300,34 @@ if (empty($output_dir) || !is_dir($output_dir)) {
 }
 
 verbose(sprintf("OUTPUT DIR: %s", $output_dir));
+
+//-----------------------------------------------------------------------------
+// get directory for importing grailbird data and js files there-in
+
+if ($do['grailbird-import']) {
+
+    $grailbird_import_dir = '';
+    if (!empty($options['grailbird-import'])) {
+        $grailbird_import_dir = $options['grailbird-import'];
+    } else {
+        $grailbird_import_dir = $dir . '/import/data/js/tweets';
+    }
+
+    $grailbird_import_dir = realpath($grailbird_import_dir);
+    if (empty($grailbird_import_dir) || !is_dir($grailbird_import_dir)) {
+        $errors[] = "You must specify a valid grailbird import directory!";
+        goto errors;
+    }
+    verbose(sprintf("GRAILBIRD IMPORT DIR: %s", $grailbird_import_dir));
+
+    $grailbird_files = files_js($grailbird_import_dir);
+    if (empty($grailbird_files)) {
+        $errors[] = sprintf("No grailbird js files found to import in: %s!", $grailbird_import_dir);
+        goto errors;
+    }
+
+    ksort($grailbird_files);
+}
 
 //-----------------------------------------------------------------------------
 // directory for grailbird output
@@ -427,6 +459,7 @@ if ($do['list']) {
 //-----------------------------------------------------------------------------
 // delete duplicates
 if ($do['dupes']) {
+
     verbose("Finding duplicate files...");
 
     // create file keys index of key => paths
@@ -621,6 +654,61 @@ if ($do['tweets-all'] || $do['list-users']) {
 }
 
 //-----------------------------------------------------------------------------
+// get directory for importing grailbird data and js files there-in
+
+if ($do['grailbird-import']) {
+
+    debug(sprintf("Importing tweets from '%s'", $grailbird_import_dir), $grailbird_files);
+
+    if (empty($tweets)) {
+        $tweets = [];
+    } else {
+
+        verbose("Indexing pre-loaded tweets…");
+
+        foreach ($tweets as $t => $tweet) {
+            // unset because we will be re-writing the tweet index and the number
+            // is going to be using the tweet id which is a much higher value
+            unset($tweets[$t]);
+
+            // store $tweet[id] into $tweets array
+            $tweets[$tweet['id']] = $tweet;
+        }
+    }
+
+    foreach ($grailbird_files as $f) {
+        //$data = json_load($gf);
+        $data = json_load_twitter($grailbird_import_dir, basename($f));
+        if (is_string($data)) {
+            $errors = sprintf("No data found in file: %s", $f);
+            goto errors;
+        }
+
+        debug(sprintf('Importing tweets from: %s', $f));
+
+        // merge each tweet
+        foreach ($data as $i => $tweet) {
+            unset($data[$i]);
+
+            $tweet_id = $tweet['id'];
+            // didn't exist, add to $tweets and continue
+            if (!array_key_exists($tweet_id, $tweets)) {
+                if ($do['tweets-all']) {
+                    debug(sprintf('Adding new tweet: %d', $tweet_id));
+                }
+                $tweets[$tweet_id] = $tweet;
+                continue;
+            }
+
+            // already in $tweets, merge it
+            $tweets[$tweet_id] = array_replace_recursive($tweets[$tweet_id], $tweet);
+        }
+    }
+
+    unset($data);
+}
+
+//-----------------------------------------------------------------------------
 // list all users
 
 verbose("Getting all users mentioned in tweets…");
@@ -638,18 +726,16 @@ foreach ($tweets as $t => $tweet) {
 
     // get user from retweeted_status/user_mentions, if exists, add/replace
     // NOTE: this only exists in the old/standard twitter backup files, not in the huge tweet.js file
+    // if using therefore with --grailbird-import it will get executed
     if (array_key_exists('retweeted_status', $tweet)) {
         $user = $tweet['retweeted_status']['user'];
-        if (!array_key_exists($user['screen_name'], $users)) {
-            debug(sprintf("Adding entry for user %d: @%s (%s)", $user['id'], $user['screen_name'], $user['name']));
+        $screen_name = $user['screen_name'];
+        if (!array_key_exists($screen_name, $users)) {
+            debug(sprintf("Adding entry for user %d: @%s (%s)", $user['id'], $screen_name, $user['name']));
             $users[$user['screen_name']] = $user;
         } else {
-            if (array_key_exists('protected', $user['screen_name'])) { // or check verified, profile_image_url_https
-                // full-data already in the array, so skip
-            }
-            // overwrite user id entry with this because it contains more data than in user_mentions
-            debug(sprintf("Replacing entry for user %d: @%s (%s)", $user['id'], $user['screen_name'], $user['name']));
-            $users[$user['id']] = array_replace_recursive($users[$user['screen_name']], $user);
+            //debug(sprintf("Replacing entry for user %d: @%s (%s)", $user['id'], $screen_name, $user['name']));
+            $users[$user['screen_name']] = array_replace_recursive($users[$screen_name], $user);
         }
     }
 
@@ -675,10 +761,16 @@ if (count($users) > $users_count) {
 }
 ksort($users);
 
+debug("Saving: $users_filename");
+$save = json_save($users_filename, $users);
+if (true !== $save) {
+    $errors[] = "\nFailed encoding JSON output file: $users_filename\n";
+    $errors[] = "\nJSON Error: $save\n";
+    goto errors;
+}
+
 // go to end and write file if --list-users, or continue processing after
 if ($do['list-users']) {
-    $output = $users;
-    $output_filename = $users_filename;
     goto output;
 }
 
@@ -754,7 +846,10 @@ foreach ($tweets as $t => $tweet) {
 
     // unset because we will be re-writing the tweet index and the number
     // is going to be using the tweet id which is a much higher value
-    unset($tweets[$t]);
+    // already done this if we imported grailbird files
+    if (!$do['grailbird-import']) {
+        unset($tweets[$t]);
+    }
 
     // drop retwwets if required
     // drop mentions (on initial tweet char being @)
@@ -1077,7 +1172,7 @@ if (!empty($remove_keys)) {
         $tweets = array_clear($tweets, $remove_keys);
     }
 } else if (!$do['grailbird']) {
-    verbose('Removing empty values from tweets…');
+    debug('Removing empty values from tweets…');
     $tweets = array_clear($tweets);
 }
 
@@ -1649,7 +1744,7 @@ unset($urls);
 
 // write tweets array to file by default if no other output specified
 if (empty($output) && !empty($tweets) && is_array($tweets)) {
-    verbose('Removing empty values from tweets again…');
+    debug('Removing empty values from tweets again…');
     $tweets = array_clear($tweets);
     $output = $tweets;
     unset($tweets);
@@ -1886,10 +1981,21 @@ function files_tweets($dir, $group = false)
  * Fetch all files in folder
  *
  * @param  string $dir to search
+ * @param  boolean $use_cache use cached files
  * @return array $sort sort files or not
  */
-function files_list($dir, $sort = true)
+function files_list($dir, $sort = true, $use_cache = true)
 {
+    static $cache = [];
+
+    // retrieve from cache (if cached) and using cache
+    $key = md5($dir . (int) $sort);
+    if (!empty($use_cache)) {
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+    }
+
     $commands = get_commands();
     $cmd      = $commands['find'] . ' ' . "$dir ";
     $cmd      .= '-type f -print';
@@ -1912,6 +2018,7 @@ function files_list($dir, $sort = true)
         natcasesort($files);
     }
 
+    $cache[$key] = $files;
     return $files;
 }
 
@@ -2103,7 +2210,7 @@ function json_load_twitter($dir, $filename)
 
     // the twitter export file tweet.js begins with:
     // window.YTD.tweet.part0 = [ {
-    if ('window' == substr($data, 0, 6)) {
+    if ('window' == substr($data, 0, 6) || 'Grailbird' == substr($data, 0, 9)) {
         $data = substr($data, strpos($data, '['));
     }
 

@@ -5,6 +5,7 @@ A command-line (CLI) script to batch-process and work with the files unzipped fr
 ## Features
 
 - It can be used to generate 'grailbird' javascript files which are compatible with the default twitter archive viewer application, of which I have written an experimental updated version called [tweets-gb](https://github.com/vijinho/tweets-gb) where the generated files can be dropped-in and optionally linked via a **file:///** URL to the physical file on disk when browsed off-line, locally and in a web browser.
+- It can also import grailbird files, join them, and optionally merge into existing tweets.js data.
 - It can unshorten all short-links and resolve all links fully (saving the results to *urls.json* for re-use on successive runs (it's a time-consuming process to check-links which can take hours!).  This can be used with the **--offline** option to speed-up subsequent processing further. Media entity attributes will be updated to reflect changes.
 - Option **local** will check subfolders for content and add file and path information into the tweet under new attributes (videos, images, files).  Also these local files will be swapped-in for the remote-ones for viewing off-line and loading faster.
 - The **--delete** option will delete lower-bitrate video files and keep the highest bitrate file if used with the local-files option **local*- Can filter tweets on date/time (from and to specific dates) using [PHP strtotime](https://secure.php.net/manual/en/function.strtotime.php) for flexible date/time format
@@ -40,14 +41,15 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
              --format={json}          Output format for script data: txt|php|json (default)
         -f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'
         -g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir
+             --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.
              --list                   Only list all files in export folder and halt - filename
              --list-js                Only List all javascript files in export folder and halt
              --list-images            Only list all image files in export folder and halt
              --list-videos            Only list all video files in export folder and halt
              --list-users             Only list all users in tweets, (default filename 'users.json') and halt
+             --tweets-count           Only show the total number of tweets and halt
         -i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'
         -a,  --tweets-all             Get all tweets (further operations below will depend on this)
-             --tweets-count           Only show the total number of tweets
              --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php
              --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php 
              --no-retweets            Drop re-tweets (RT's)
@@ -60,7 +62,7 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
              --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!
         -r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')
         -k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)
-             --regexp                 Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php
+             --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php
              --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given
 ```
 
@@ -95,6 +97,11 @@ Get tweets from 1 Jan 2017 to 'last friday':
 Filter tweet text on word 'hegemony' since last year: 
         `php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save`
 
+Import grailbird files from 'import/data/js/tweets':
+        php tweets.php --grailbird-import=import/data/js/tweets --debug`
+Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:
+        php tweets-cli/tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose`
+        
 Generate grailbird files with expanded/resolved URLs:
         `php tweets.php --tweets-all --debug --urls-expand --urls-resolve --grailbird=grailbird`
 

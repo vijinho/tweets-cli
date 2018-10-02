@@ -410,6 +410,8 @@ if ($do['list'] || $do['list-images'] || $do['list-videos'] || $do['list-js'] ||
         $errors[] = "No files found!";
         goto errors;
     }
+} else {
+    $files = [];
 }
 
 //-----------------------------------------------------------------------------
@@ -682,7 +684,7 @@ if ($do['list-users']) {
 
 // if not processing all tweets, lose the tweets
 if (!$do['tweets-all']) {
-    unset($tweets);
+    $tweets = [];
 }
 
 //-----------------------------------------------------------------------------
@@ -1884,7 +1886,7 @@ function files_tweets($dir, $group = false)
  * Fetch all files in folder
  *
  * @param  string $dir to search
- * @return boolean $sort sort files or not
+ * @return array $sort sort files or not
  */
 function files_list($dir, $sort = true)
 {
@@ -1947,7 +1949,7 @@ function files_images($dir, $group = false)
  * @param  string $dir to search
  * @return array [][basename => target] OR if group set [][id][basename => target]
  */
-function files_videos($dir, $group)
+function files_videos($dir, $group = false)
 {
     $videos = [];
     $files  = files_list($dir);

@@ -19,7 +19,8 @@ A command-line (CLI) script to batch-process and work with the files unzipped fr
 - Output can also be optionally changed to .txt or serialized php.
 - Option to discard tweets which are mentions or retweets (**--no-retweets** and **--no-mentions**)
 - Can just return a json file of either of the following: js/json files, images, videos or all files in the twitter backup folder.
-- (Probably I missed some, but never mind...)
+- Save basic info of all users mentioned or RT'd to *users.json* with **--list-users**
+- Adds new tweet attribute 'rt' if RT containing RT'd username
 
 ## Usage - CLI Options
 
@@ -43,9 +44,10 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
              --list-js                Only List all javascript files in export folder and halt
              --list-images            Only list all image files in export folder and halt
              --list-videos            Only list all video files in export folder and halt
+             --list-users             Only list all users in tweets, (default filename 'users.json') and halt
         -i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'
-             --tweets-count           Only show the total number of tweets
         -a,  --tweets-all             Get all tweets (further operations below will depend on this)
+             --tweets-count           Only show the total number of tweets
              --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php
              --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php 
              --no-retweets            Drop re-tweets (RT's)
@@ -71,6 +73,9 @@ Report duplicate tweet media files and output to 'dupes.json':
         
 Show total tweets in tweets file:
         `php tweets.php --tweets-count --verbose`
+
+Write all users mentioned in tweets to file users.json:
+        `php tweets.php --list-users -fusers.json --verbose`
 
 Show javascript files in backup folder:
         `php tweets.php --list-js --debug`

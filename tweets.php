@@ -48,6 +48,7 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'list-js',
     'list-images',
     'list-videos',
+    'list-users',
     'tweets-file:',
     'tweets-count',
     'tweets-all',
@@ -79,6 +80,7 @@ foreach ([
  'list-js'      => [null, 'list-js'],
  'list-images'  => [null, 'list-images'],
  'list-videos'  => [null, 'list-videos'],
+ 'list-users'   => [null, 'list-users'],
  'tweets-count' => [null, 'tweets-count'],
  'tweets-all'   => ['a', 'tweets-all'],
  'no-retweets'  => [null, 'no-retweets'],
@@ -138,8 +140,9 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t     --list-js                Only List all javascript files in export folder and halt",
         "\t     --list-images            Only list all image files in export folder and halt",
         "\t     --list-videos            Only list all video files in export folder and halt",
+        "\t     --list-users             Only list all users in tweets, (default filename 'users.json') and halt",
+        "\t     --tweets-count           Only show the total number of tweets and halt",
         "\t-i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'",
-        "\t     --tweets-count           Only show the total number of tweets",
         "\t-a,  --tweets-all             Get all tweets (further operations below will depend on this)",
         "\t     --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php",
         "\t     --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php ",
@@ -158,6 +161,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\nExamples:",
         "Report duplicate tweet media files and output to 'dupes.json':\n\tphp tweets-cli/tweets.php -fdupes.json --dupes",
         "Show total tweets in tweets file:\n\tphp tweets.php --tweets-count --verbose",
+        "Write all users mentioned in tweets to file 'users.json':\n\tphp tweets.php --list-users --verbose",
         "Show javascript files in backup folder:\n\tphp tweets.php --list-js --debug",
         "Resolve all URLs in 'tweet.js' file, writing output to 'tweet.json':\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json",
         "Resolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json --grailbird=grailbird",
@@ -337,6 +341,15 @@ if (!empty($options['f'])) {
 
 if (!empty($output_filename)) {
     verbose(sprintf("OUTPUT FILENAME: %s", $output_filename));
+}
+
+//-----------------------------------------------------------------------------
+// users data filename
+
+if ($do['list-users']) {
+    $users_filename = empty($output_filename) ? 'users.json' : $output_filename;
+} else {
+    $users_filename = 'users.json';
 }
 
 //-----------------------------------------------------------------------------
@@ -588,7 +601,7 @@ if ($do['tweets-count']) {
 //-----------------------------------------------------------------------------
 // fetch tweets - all
 
-if ($do['tweets-all']) {
+if ($do['tweets-all'] || $do['list-users']) {
     // load in all tweets
     verbose(sprintf("Loading tweets from '%s'", $tweets_file));
 
@@ -603,6 +616,73 @@ if ($do['tweets-all']) {
     $tweets_count = count($tweets);
 
     verbose(sprintf("Tweets loaded: %d", $tweets_count));
+}
+
+//-----------------------------------------------------------------------------
+// list all users
+
+verbose("Getting all users mentioned in tweets…");
+
+$users      = json_load($users_filename);
+if (!is_string($users)) {
+    $users_count = count($users);
+    verbose(sprintf("Loaded %d previously saved users from '%s'", $users_count, $users_filename));
+} else {
+    $users = [];
+    $users_count = 0;
+}
+
+foreach ($tweets as $t => $tweet) {
+
+    // get user from retweeted_status/user_mentions, if exists, add/replace
+    // NOTE: this only exists in the old/standard twitter backup files, not in the huge tweet.js file
+    if (array_key_exists('retweeted_status', $tweet)) {
+        $user = $tweet['retweeted_status']['user'];
+        if (!array_key_exists($user['screen_name'], $users)) {
+            debug(sprintf("Adding entry for user %d: @%s (%s)", $user['id'], $user['screen_name'], $user['name']));
+            $users[$user['screen_name']] = $user;
+        } else {
+            if (array_key_exists('protected', $user['screen_name'])) { // or check verified, profile_image_url_https
+                // full-data already in the array, so skip
+            }
+            // overwrite user id entry with this because it contains more data than in user_mentions
+            debug(sprintf("Replacing entry for user %d: @%s (%s)", $user['id'], $user['screen_name'], $user['name']));
+            $users[$user['id']] = array_replace_recursive($users[$user['screen_name']], $user);
+        }
+    }
+
+    // get users from entities/user_mentions
+    // this should only add new values, not replace any, because only extra data is in retweeted_status/user entry
+    if (!empty($tweet['entities']) && array_key_exists('user_mentions', $tweet['entities'])) {
+        $user_mentions = $tweet['entities']['user_mentions'];
+        foreach ($user_mentions as $i => $user) {
+            if (array_key_exists($user['screen_name'], $users)) {
+                continue;
+            }
+            unset($user['indices']);
+            debug(sprintf("Adding entry for user %d: @%s (%s)", $user['id'], $user['screen_name'], $user['name']));
+            // deleted users have id -1
+            $users[$user['screen_name']] = $user;
+        }
+    }
+}
+
+if (count($users) > $users_count) {
+    verbose(sprintf("New users added: %d. Total users: %d", count($users) - $users_count, count($users)));
+    $users_count = count($users);
+}
+ksort($users);
+
+// go to end and write file if --list-users, or continue processing after
+if ($do['list-users']) {
+    $output = $users;
+    $output_filename = $users_filename;
+    goto output;
+}
+
+// if not processing all tweets, lose the tweets
+if (!$do['tweets-all']) {
+    unset($tweets);
 }
 
 //-----------------------------------------------------------------------------
@@ -676,10 +756,17 @@ foreach ($tweets as $t => $tweet) {
 
     // drop retwwets if required
     // drop mentions (on initial tweet char being @)
-    if (($do['no-retweets'] && 'RT' == substr($tweet['full_text'], 0, 2)) ||
+    $is_rt = 'RT' == substr($tweet['full_text'], 0, 2);
+    if (($do['no-retweets'] && $is_rt) ||
         ($do['no-mentions'] && '@' == substr($tweet['full_text'], 0, 1))) {
         $tweets_count--;
         continue;
+    }
+        // get the RT'd username and save to 'rt'
+    if ($is_rt) {
+        if (preg_match("/^RT\s+@(?P<screen_name>[^:\s]+)/i", $tweet['full_text'], $matches)) {
+            $tweet['rt'] = $matches['screen_name']; // set RT'd user
+        }
     }
 
     // create unix timestamp 'created_at_unixtime' converted from date/time
@@ -1440,17 +1527,52 @@ if ($do['grailbird']) {
 
         $tweet = $tweet_default; // need to modify this to match grailbird files
 
-        if (!array_key_exists('user', $tweet)) {
-            $tweet['user'] = $user;
-        }
-
         $tweet['created_at'] = date('Y-m-d h:i:s +0000',
             $tweet['created_at_unixtime']);
         $month_file          = date('Y_m', $tweet['created_at_unixtime']);
 
+        if (!array_key_exists('user', $tweet)) {
+            // not an RT so use loaded $user information
+            if (!array_key_exists('rt', $tweet)) {
+                $tweet['user'] = $user;
+            } else {
+                // is an rt, add user for it
+                $screen_name = $tweet['rt'];
+                if (array_key_exists($screen_name, $users)) {
+                    $u = $users[$screen_name];
+                    // create missing data if not present
+                    if (!array_key_exists('profile_image_url_https', $u)) {
+                        $u = array_replace_recursive([
+                            'name' => $screen_name,
+                            'screen_name' => $screen_name,
+                            'protected' => false,
+                            'id_str' => -1,
+                            'id' => -1,
+                            'verified' => false,
+                            'profile_image_url_https' => 'https:\/\/pbs.twimg.com\/profile_images\/'
+                        ], $u);
+                        $users[$screen_name] = $u;
+                    }
+                } else {
+                    // create dummy expired data for user
+                    $u = [
+                        'name' => $screen_name,
+                        'screen_name' => $screen_name,
+                        'protected' => false,
+                        'id_str' => -1,
+                        'id' => -1,
+                        'verified' => false,
+                        'profile_image_url_https' => 'https:\/\/pbs.twimg.com\/profile_images\/'
+                    ];
+                    $users[$screen_name] = $u;
+                }
+                $tweet['user'] = $u;
+            }
+        }
+
         // remove keys not in grailbord
         foreach (['truncated', 'retweet_count', 'retweeted', 'favorited', 'favorite_count',
-        'possibly_sensitive',
+        'possibly_sensitive', 'rt',
         'lang', 'display_text_range', 'full_text', 'created_at_unixtime', 'extended_entities'] as
                 $key) {
             if (array_key_exists($key, $tweet)) {

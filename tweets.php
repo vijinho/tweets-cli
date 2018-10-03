@@ -1058,7 +1058,7 @@ if (!empty($tweets) && is_array($tweets)) {
         }
 
         // perform search/replace on 'text'
-        $tweet['text'] = trim(str_replace($search, $replace, $tweet['text']));
+        $tweet['text']     = trim(str_replace($search, $replace, $tweet['text']));
         $tweets[$tweet_id] = $tweet;
     }
 }
@@ -1085,7 +1085,8 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
 
         // find the files for the tweet
         if (!empty($tweet['entities']['media'])) {
-            $extended_entities = empty($tweet['extended_entities']['media']) ? [] : $tweet['extended_entities']['media'];
+            $extended_entities = empty($tweet['extended_entities']['media']) ? [
+] : $tweet['extended_entities']['media'];
             foreach ([$tweet['entities']['media'], $extended_entities] as
                     $entities) {
                 if (empty($entities)) {
@@ -1243,7 +1244,7 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
                     continue;
                 }
                 $i++;
-                sleep(0.25);
+                sleep(0.2);
             }
             verbose("Finished fetching missing files.");
             $output[] = sprintf("Downloaded %d/%d missing media files.", $i,
@@ -1508,7 +1509,7 @@ if ($do['urls-resolve']) {
         if ('http' == $parts['scheme'] && array_key_exists($parts['host'],
                 $https_domains)) {
             $parts['scheme'] = 'https';
-            $urls[$url] = str_ireplace('http://', 'https://', $target);
+            $urls[$url]      = str_ireplace('http://', 'https://', $target);
         }
 
         // modify query string and URL - remove 'feature' param, fix youtube url, remove utm_* tracking
@@ -1519,8 +1520,10 @@ if ($do['urls-resolve']) {
             if (!empty($querystring) && is_array($querystring)) {
                 foreach ($querystring as $k => $v) {
                     // youtube url fix
-                    if (array_key_exists('feature', $querystring) && false !== stristr($target, 'youtube')) {
-                        $target = str_replace(['m.youtube', '&feature=youtu.be'], ['www.youtube', ''], $target);
+                    if (array_key_exists('feature', $querystring) && false !== stristr($target,
+                            'youtube')) {
+                        $target = str_replace(['m.youtube', '&feature=youtu.be'],
+                            ['www.youtube', ''], $target);
                     }
                     if ('feature' === $k || false !== stristr($k, 'utm_')) {
                         unset($querystring[$k]);
@@ -1534,12 +1537,14 @@ if ($do['urls-resolve']) {
                 $newtarget = $t['scheme'] . '://' . $t['host'];
 
                 // add port if non-standard port (not 80,443)
-                if (array_key_exists('port', $t) && !in_array($t['port'], [80,443])) {
+                if (array_key_exists('port', $t) && !in_array($t['port'],
+                        [80, 443])) {
                     $newtarget .= ':' . $t['port'];
                 }
 
                 // add path if not / and no query string
-                if (array_key_exists('path', $t) && !empty($t['path'] && '/' !== $t['path'] && !empty($querysring))) {
+                if (array_key_exists('path', $t) && !empty($t['path'] && '/' !== $t['path']
+                        && !empty($querysring))) {
                     $newtarget .= $t['path'];
                 }
 
@@ -1555,7 +1560,7 @@ if ($do['urls-resolve']) {
 
                 // update urls with new target
                 if ($target !== $newtarget) {
-                    $target = $newtarget;
+                    $target     = $newtarget;
                     $urls[$url] = $target;
                 }
             }
@@ -1655,10 +1660,13 @@ if ($do['urls-resolve'] && !empty($tweets) && is_array($tweets)) {
         if ($do['local']) {
             $found_entities = [];
 
-            $tweet['entities']['media'] = empty($tweet['entities']['media']) ? [] : $tweet['entities']['media'];
-            $tweet['extended_entities']['media'] = empty($tweet['extended_entities']['media']) ? [] : $tweet['extended_entities']['media'];
+            $tweet['entities']['media']          = empty($tweet['entities']['media'])
+                    ? [] : $tweet['entities']['media'];
+            $tweet['extended_entities']['media'] = empty($tweet['extended_entities']['media'])
+                    ? [] : $tweet['extended_entities']['media'];
 
-            foreach ([$tweet['entities']['media'], $tweet['extended_entities']['media']] as $index => $entities) {
+            foreach ([$tweet['entities']['media'], $tweet['extended_entities']['media']] as
+                    $index => $entities) {
 
                 if (empty($entities)) {
                     continue;
@@ -1682,16 +1690,16 @@ if ($do['urls-resolve'] && !empty($tweets) && is_array($tweets)) {
                     $found = false; // found local file
                     foreach ($search_files as $file) {
                         if (array_key_exists($file, $images)) {
-                            $path = $images[$file];
-                            $found                  = true;
+                            $path  = $images[$file];
+                            $found = true;
                             break;
                         } else if (array_key_exists($file, $videos)) {
-                            $path = $videos[$file];
-                            $found                  = true;
+                            $path  = $videos[$file];
+                            $found = true;
                             break;
                         } else if (array_key_exists($file, $files)) {
-                            $path = $files[$file];
-                            $found                 = true;
+                            $path  = $files[$file];
+                            $found = true;
                             break;
                         }
                     }
@@ -1700,23 +1708,27 @@ if ($do['urls-resolve'] && !empty($tweets) && is_array($tweets)) {
                         continue;
                     }
 
-                    $i                              = strlen($tweet['text']); // will append to tweet after!
-                    $url                            = 'file://' . $path;
-                    $entity                         = array_replace_recursive($entity,
+                    $i      = strlen($tweet['text']); // will append to tweet after!
+                    $url    = 'file://' . $path;
+                    $entity = array_replace_recursive($entity,
                         [
                         'url'             => '',
                         'expanded_url'    => '',
-                        'media_url' => $url,
+                        'media_url'       => $url,
                         'media_url_https' => $url,
                         'display_url'     => '',
                         'indices'         => [$i, $i + 1],
                     ]);
 
-                    if (0 === $index) {
-                        $tweet['entities']['media'][$e] = $entity;
-                    } else {
-                        $tweet['extended_entities']['media'][$e] = $entity;
-                    }
+                    $entities[$e] = $entity;
+                }
+
+                switch ($index) {
+                    case 0:
+                        $tweet['entities']['media'] = $entities;
+
+                    case 1:
+                        $tweet['extended_entities'] = $entities;
                 }
             }
         }
@@ -1889,7 +1901,7 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
                             'id_str'                  => -1,
                             'id'                      => -1,
                             'verified'                => false,
-                            'profile_image_url_https' => 'https:\/\/pbs.twimg.com\/profile_images\/'
+                            'profile_image_url_https' => ''
                             ], $u);
                         $users[$screen_name] = $u;
                     }
@@ -1902,7 +1914,7 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
                         'id_str'                  => -1,
                         'id'                      => -1,
                         'verified'                => false,
-                        'profile_image_url_https' => 'https:\/\/pbs.twimg.com\/profile_images\/'
+                        'profile_image_url_https' => ''
                     ];
                     $users[$screen_name] = $u;
                 }
@@ -2333,8 +2345,8 @@ function files_videos($dir, $group = false)
  */
 function files_js($dir)
 {
-    $js_files    = [];
-    $files = files_list($dir);
+    $js_files = [];
+    $files    = files_list($dir);
     foreach ($files as $f => $file) {
         if (stristr($f, '.js') !== false || stristr($f, '.json') !== false) {
             if (0 !== filesize($file)) {

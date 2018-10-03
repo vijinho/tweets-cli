@@ -699,8 +699,6 @@ if ($do['grailbird-import'] && !empty($grailbird_files) && is_array($grailbird_f
             // unset because we will be re-writing the tweet index and the number
             // is going to be using the tweet id which is a much higher value
             unset($tweets[$t]);
-
-            // store $tweet[id] into $tweets array
             $tweets[$tweet['id']] = $tweet;
         }
     }
@@ -1059,8 +1057,6 @@ if (!empty($tweets) && is_array($tweets)) {
 
         // perform search/replace on 'text'
         $tweet['text'] = trim(str_replace($search, $replace, $tweet['text']));
-
-        // store $tweet[id] into $tweets array
         $tweets[$tweet_id] = $tweet;
     }
 }
@@ -1087,14 +1083,13 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
 
         // find the files for the tweet
         if (!empty($tweet['entities']['media'])) {
-            $extended_entities = empty($tweet['extended_entities']['media']) ? [
-] : $tweet['extended_entities']['media'];
+            $extended_entities = empty($tweet['extended_entities']['media']) ? [] : $tweet['extended_entities']['media'];
             foreach ([$tweet['entities']['media'], $extended_entities] as
                     $entities) {
                 if (empty($entities)) {
                     continue;
                 }
-                foreach ($tweet['entities']['media'] as $entity) {
+                foreach ($entities as $entity) {
                     // construct the local filename, then later check it exists
                     $media_file   = basename($entity['media_url_https']);
                     $media_file2  = $tweet_id . '-' . $media_file;
@@ -1224,11 +1219,6 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
         // perform the search/replace on urls in 'text'
         $tweet['text'] = trim(str_replace($search, $replace, $tweet['text']));
 
-        // a change occurred, url was stripped
-        if ($full_text !== $tweet['text']) {
-            //debug(sprintf("Modified:\n\t%s\n\t%s", $full_text, $tweet['text']));
-        }
-
         $tweets[$tweet_id] = $tweet;
     }
 
@@ -1289,7 +1279,6 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
                 $media_files = [$media_files];
             }
             // check tweet exists, if so, merge files into files keys
-            //debug(sprintf("Local content '%s' found for tweet id: %d", $type, $tweets[$id]['id']));
             if (empty($tweets[$id][$type])) {
                 $tweets[$id][$type] = [];
             }
@@ -1304,26 +1293,27 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
 
 if ($do['keys-filter']) {
 
-    $only_keys = '';
-
+    $only_keys = [];
     if (!empty($options['s'])) {
         $only_keys = $options['s'];
     } elseif (!empty($options['keys-filter'])) {
         $only_keys = $options['keys-filter'];
     }
 
-    $only_keys = preg_split("/,/", $only_keys);
+    if (!empty($only_keys)) {
+        $only_keys = preg_split("/,/", $only_keys);
 
-    verbose('Filtering tweets to show only keys…', $only_keys);
+        verbose('Filtering tweets to show only keys…', $only_keys);
 
-    if (!empty($only_keys) && !empy($tweets) && is_array($tweets)) {
-        foreach ($tweets as $tweet_id => $tweet) {
-            foreach ($tweet as $k => $v) {
-                if (!in_array($k, $only_keys)) {
-                    unset($tweet[$k]);
+        if (!empty($only_keys) && !empy($tweets) && is_array($tweets)) {
+            foreach ($tweets as $tweet_id => $tweet) {
+                foreach ($tweet as $k => $v) {
+                    if (!in_array($k, $only_keys)) {
+                        unset($tweet[$k]);
+                    }
                 }
+                $tweets[$tweet_id] = $tweet;
             }
-            $tweets[$tweet_id] = $tweet;
         }
     }
 }
@@ -1333,7 +1323,7 @@ if ($do['keys-filter']) {
 // stripping out of the attributes/keys if they were specified
 // on the command-line
 
-$remove_keys = '';
+$remove_keys = [];
 
 if (!empty($options['k'])) {
     $remove_keys = $options['k'];
@@ -1344,10 +1334,10 @@ if (!empty($options['k'])) {
 if (!empty($remove_keys)) {
     $remove_keys = preg_split("/,/", $remove_keys);
     verbose('Removing keys from tweets…', $remove_keys);
-    if (!empty($remove_keys)) {
+    if (!empty($remove_keys) && is_array($remove_keys)) {
         $tweets = array_clear($tweets, $remove_keys);
     }
-} else if (!$do['grailbird']) {
+} else if (!$do['grailbird'] && !empty($tweets) && is_array($tweets)) {
     debug('Removing empty values from tweets…');
     $tweets = array_clear($tweets);
 }
@@ -1368,7 +1358,6 @@ if ($do['urls-resolve'] && !OFFLINE) {
         $parts = parse_url($url);
         if (false == $parts || count($parts) <= 1 || (array_key_exists('host',
                 $parts) && in_array(strtolower($parts['host']), $hosts_expired))) {
-            //debug(sprintf("Skipping expired %s for url %s", $host, $url));
             $urls[$url] = 0;
             continue;
         }
@@ -1613,53 +1602,67 @@ if ($do['urls-resolve'] && !empty($tweets) && is_array($tweets)) {
         if ($do['local']) {
             $found_entities = [];
 
-            if (array_key_exists('entities', $tweet) && array_key_exists('media',
-                    $tweet['entities'])) {
-                foreach ($tweet['entities']['media'] as $e => $entity) {
-                    $media_url = basename($entity['media_url_https']);
-                    foreach ([
-                    $media_url, $tweet_id . '-' . $media_url
-                    ] as $key) {
-                        if (!array_key_exists($key, $files)) {
-                            continue;
-                        }
+            $tweet['entities']['media'] = empty($tweet['entities']['media']) ? [] : $tweet['entities']['media'];
+            $tweet['extended_entities']['media'] = empty($tweet['extended_entities']['media']) ? [] : $tweet['extended_entities']['media'];
 
-                        $i                              = strlen($tweet['text']); // will append to tweet after!
-                        $path                           = $files[$key];
-                        $url                            = 'file://' . $path;
-                        $entity                         = array_replace_recursive($entity,
-                            [
-                            'url'             => '',
-                            'expanded_url'    => '',
-                            'media_url_https' => $url,
-                            'media_url_https' => $url,
-                            'display_url'     => '',
-                            'indices'         => [$i, $i + 1],
-                        ]);
-                        $tweet['entities']['media'][$e] = $entity;
-                        $found_entities[$key]           = $entity;
+            foreach ([$tweet['entities']['media'], $tweet['extended_entities']['media']] as $index => $entities) {
+
+                if (empty($entities)) {
+                    continue;
+                }
+
+                foreach ($entities as $e => $entity) {
+
+                    // construct the local filename, then later check it exists
+                    $media_file   = basename($entity['media_url_https']);
+                    $media_file2  = $tweet_id . '-' . $media_file;
+                    $search_files = [
+                        $media_file  => $media_file,
+                        $media_file2 => $media_file2
+                    ];
+                    if (array_key_exists('source_status_id', $entity)) {
+                        $media_file3                = $entity['source_status_id'] . '-' . $media_file;
+                        $search_files[$media_file3] = $media_file3;
                     }
-                }
 
-                // append this to the end of the tweet if entities found
-                if (!empty($found_entities)) {
-                    $tweet['text'] .= "\n";
-                }
-            }
-
-            // update extended_entities with the above
-            if (array_key_exists('extended_entities', $tweet) && array_key_exists('media',
-                    $tweet['extended_entities'])) {
-                foreach ($tweet['extended_entities']['media'] as $e => $entity) {
-                    $media_url = basename($entity['media_url_https']);
-                    foreach ([
-                    $media_url, $tweet_id . '-' . $media_url
-                    ] as $key) {
-                        if (array_key_exists($key, $found_entities)) {
-                            $entity                                  = array_replace_recursive($entity,
-                                $found_entities[$key]);
-                            $tweet['extended_entities']['media'][$e] = $entity;
+                    // check if the filename is just {id}.{ext} instead of {tweet_id}-{id}.{ext}
+                    $found = false; // found local file
+                    foreach ($search_files as $file) {
+                        if (array_key_exists($file, $images)) {
+                            $path = $images[$file];
+                            $found                  = true;
+                            break;
+                        } else if (array_key_exists($file, $videos)) {
+                            $path = $videos[$file];
+                            $found                  = true;
+                            break;
+                        } else if (array_key_exists($file, $files)) {
+                            $path = $files[$file];
+                            $found                 = true;
+                            break;
                         }
+                    }
+
+                    if (empty($found)) {
+                        continue;
+                    }
+
+                    $i                              = strlen($tweet['text']); // will append to tweet after!
+                    $url                            = 'file://' . $path;
+                    $entity                         = array_replace_recursive($entity,
+                        [
+                        'url'             => '',
+                        'expanded_url'    => '',
+                        'media_url' => $url,
+                        'media_url_https' => $url,
+                        'display_url'     => '',
+                        'indices'         => [$i, $i + 1],
+                    ]);
+
+                    if (0 === $index) {
+                        $tweet['entities']['media'][$e] = $entity;
+                    } else {
+                        $tweet['extended_entities']['media'][$e] = $entity;
                     }
                 }
             }
@@ -1947,11 +1950,13 @@ if (!empty($output)) {
 
     switch (OUTPUT_FORMAT) {
         case 'txt':
-            foreach ($output as $o) {
-                if (is_array($o) || is_object($o)) {
-                    print_r($o);
-                } else {
-                    echo "$o\n";
+            if (!empty($output) && is_array($output)) {
+                foreach ($output as $o) {
+                    if (is_array($o) || is_object($o)) {
+                        print_r($o);
+                    } else {
+                        echo "$o\n";
+                    }
                 }
             }
             break;
@@ -2086,7 +2091,7 @@ function get_commands($requirements = [])
  * stdin, stdout, stderr
  *
  * @param  string $cmd command to execute
- * @return mixed array $streams | boolean false if failure
+ * @return array|false array $streams | boolean false if failure
  * @see    https://secure.php.net/manual/en/function.proc-open.php
  */
 function shell_execute($cmd)
@@ -2275,17 +2280,17 @@ function files_videos($dir, $group = false)
  */
 function files_js($dir)
 {
-    $js    = [];
+    $js_files    = [];
     $files = files_list($dir);
     foreach ($files as $f => $file) {
         if (stristr($f, '.js') !== false || stristr($f, '.json') !== false) {
             if (0 !== filesize($file)) {
-                $js[$f] = $file;
+                $js_files[$f] = $file;
             }
         }
     }
 
-    return $js;
+    return $js_files;
 }
 
 
@@ -2336,11 +2341,11 @@ function array_clear($array, $keys = [])
  * Encode array character encoding recursively
  *
  * @param mixed $data
- * @param string $to convert to encoding
- * @param string $from convert from encoding
- * @return array|string
+ * @param string $to_charset convert to encoding
+ * @param string $from_charset convert from encoding
+ * @return mixed
  */
-function to_charset($data, $to = 'UTF-8', $from = 'auto')
+function to_charset($data, $to_charset = 'UTF-8', $from_charset = 'auto')
 {
     if (is_numeric($data)) {
         if (is_float($data)) {
@@ -2349,14 +2354,14 @@ function to_charset($data, $to = 'UTF-8', $from = 'auto')
             return (int) $data;
         }
     } else if (is_string($data)) {
-        return mb_convert_encoding($data, $to, $from);
+        return mb_convert_encoding($data, $to_charset, $from_charset);
     } else if (is_array($data)) {
         foreach ($data as $key => $value) {
-            $data[$key] = to_charset($value, $to, $from);
+            $data[$key] = to_charset($value, $to_charset, $from_charset);
         }
     } else if (is_object($data)) {
         foreach ($data as $key => $value) {
-            $data->$key = to_charset($value, $to, $from);
+            $data->$key = to_charset($value, $to_charset, $from_charset);
         }
     }
     return $data;
@@ -2473,7 +2478,7 @@ function serialize_load($file)
  * Save data array to a php serialized data
  *
  * @param  string $file the json filename
- * @param  array $data data to save
+ * @param  mixed $data data to save
  * @return boolean result
  */
 function serialize_save($file, $data)

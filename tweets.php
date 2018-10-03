@@ -860,13 +860,14 @@ if (!is_string($urls)) {
 
 verbose(sprintf("URLs loaded: %d", count($urls)));
 
-// summarise the number of source urls and target urls by host
+// summarise the number of source urls and target urls by host and tidy-up urls
 if (DEBUG && !empty($urls)) {
     $rurls       = [];
     $targets     = [];
     $unresolved  = [];
     $curl_errors = [];
     foreach ($urls as $url => $target) {
+
         $u = parse_url($url);
         if (!empty($u['host'])) {
             if (!array_key_exists($u['host'], $rurls)) {
@@ -874,8 +875,9 @@ if (DEBUG && !empty($urls)) {
             }
             $rurls[$u['host']] ++;
         }
+
         $t = parse_url($target);
-        if (!empty($t['host'])) {
+        if (array_key_exists('host', $t) && !empty($t['host'])) {
             if (!array_key_exists($t['host'], $targets)) {
                 $targets[$t['host']] = 0;
             }
@@ -1506,7 +1508,58 @@ if ($do['urls-resolve']) {
         // if the host is HTTP, but exists on HTTPS, convert it
         if ('http' == $parts['scheme'] && array_key_exists($parts['host'],
                 $https_domains)) {
+            $parts['scheme'] = 'https';
             $urls[$url] = str_ireplace('http://', 'https://', $target);
+        }
+
+        // modify query string and URL - remove 'feature' param, fix youtube url, remove utm_* tracking
+        $t = $parts;
+        if (!empty($t['query'])) {
+            $querystring = [];
+            parse_str($t['query'], $querystring);
+            if (!empty($querystring) && is_array($querystring)) {
+                foreach ($querystring as $k => $v) {
+                    // youtube url fix
+                    if (array_key_exists('feature', $querystring) && false !== stristr($target, 'youtube')) {
+                        $target = str_replace(['m.youtube', '&feature=youtu.be'], ['www.youtube', ''], $target);
+                    }
+                    if ('feature' === $k || false !== stristr($k, 'utm_')) {
+                        unset($querystring[$k]);
+                    }
+                }
+
+                ksort($querystring);
+                $querystring = http_build_query($querystring);
+
+                // build url
+                $newtarget = $t['scheme'] . '://' . $t['host'];
+
+                // add port if non-standard port (not 80,443)
+                if (array_key_exists('port', $t) && !in_array($t['port'], [80,443])) {
+                    $newtarget .= ':' . $t['port'];
+                }
+
+                // add path if not / and no query string
+                if (array_key_exists('path', $t) && !empty($t['path'] && '/' !== $t['path'] && !empty($querysring))) {
+                    $newtarget .= $t['path'];
+                }
+
+                // add querystring
+                if (!empty($querystring)) {
+                    $newtarget .= '?' . $querystring;
+                }
+
+                // add fragment
+                if (!empty($t['fragment'])) {
+                    $newtarget .= '#' . $t['fragment'];
+                }
+
+                // update urls with new target
+                if ($target !== $newtarget) {
+                    $target = $newtarget;
+                    $urls[$url] = $target;
+                }
+            }
         }
     }
 

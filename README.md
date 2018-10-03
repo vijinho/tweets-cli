@@ -48,6 +48,7 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
              --list-videos            Only list all video files in export folder and halt
              --list-users             Only list all users in tweets, (default filename 'users.json') and halt
              --list-missing-media     List media URLs for which no local file exists and halt (implies --local)
+             --download-missing       Download missing media (from --list-missing-media) and halt, e.g.. missing media files (implies --local)
              --tweets-count           Only show the total number of tweets and halt
         -i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'
         -a,  --tweets-all             Get all tweets (further operations below will depend on this)
@@ -76,51 +77,58 @@ Report duplicate tweet media files and output to 'dupes.json':
         
 Show total tweets in tweets file:
         `php tweets.php --tweets-count --verbose`
-
-Write all users mentioned in tweets to file users.json:
-        `php tweets.php --list-users -fusers.json --verbose`
-
+        
+Write all users mentioned in tweets to file 'users.json':
+        `php tweets.php --list-users --verbose`
+        
 Show javascript files in backup folder:
-        `php tweets.php --list-js --debug`
-
+        `php tweets.php --list-js --verbose`
+        
 Resolve all URLs in 'tweet.js' file, writing output to 'tweet.json':
         `php tweets.php --tweets-all --urls-resolve --filename=tweet.json`
-
+        
 Resolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':
         `php tweets.php --tweets-all --urls-resolve --filename=tweet.json --grailbird=grailbird`
-
+        
 Get tweets, only id, created and text keys:
         `php tweets.php -v -a -o -u --keys-filter=id,created_at,text`
-
-Get tweets from 1 Jan 2017 to 'last friday': 
-        `php tweets.php -v -a -o -u --date-from '2017-01-01' --date-to='last friday'`
-
-Filter tweet text on word 'hegemony' since last year: 
-        `php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save`
-
-Import grailbird files from 'import/data/js/tweets':
-        php tweets.php --grailbird-import=import/data/js/tweets --debug`
-Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:
-        php tweets-cli/tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose`
         
+Get tweets from 1 Jan 2017 to 'last friday':
+        `php tweets.php -v -a -o -u --date-from '2017-01-01' --date-to='last friday'`
+        
+Filter tweet text on word 'hegemony' since last year
+         `php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony`
+         
 Generate grailbird files with expanded/resolved URLs:
-        `php tweets.php --tweets-all --debug --urls-expand --urls-resolve --grailbird=grailbird`
-
+        `php tweets.php --tweets-all --verbose --urls-expand --urls-resolve --grailbird=grailbird`
+        
 Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:
-        `php tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --grailbird=grailbird`
-
+        `php tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --grailbird=grailbird`
+        
 Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:
-        `php tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --local --grailbird=grailbird`
-
+        `php tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --grailbird=grailbird`
+        
 Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:
-        `php tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird`
-
+        `php tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird`
+        
 Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':
         `php tweets-cli/tweets.php --delete --dupes`
-
-Extract the first couple of words of the tweet and name the saved regexp 'words'
+        
+Extract the first couple of words of the tweet and name the saved regexp 'words':
         `tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words`
+        
+Import grailbird files from 'import/data/js/tweets':
+        `php tweets.php --grailbird-import=import/data/js/tweets --verbose`
+        
+Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:
+        `php tweets-cli/tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose`
+        
+List URLs for which there are missing local media files:
+        `php tweets.php -a --list-missing-media --verbose`
 
+Download files from URLs for which there are missing local media files:
+        `php tweets.php -a --download-missing --verbose`
+        
 ## Note
 
 - *I have only tested it on MacOS* but it should work under Linux.
@@ -128,7 +136,7 @@ Extract the first couple of words of the tweet and name the saved regexp 'words'
 
 ## To Do
 
-- Reduce memory-usage
+- Reduce memory-usage!
 - Work and process other files in the twitter backup fileset, e.g. for Twitter Moments
 - Option to export/copy a tweet and all associated files 
 - Option to write filtered tweets to a different file formats, e.g. CSV or HTML

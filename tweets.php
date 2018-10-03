@@ -15,13 +15,16 @@ ini_set('mbstring.func_overload', 6);
 
 //-----------------------------------------------------------------------------
 // required commands check
-$commands = get_commands([
+$requirements = [
     'find' => 'System command: find',
     'curl' => 'https://curl.haxx.se',
     'wget' => 'https://www.gnu.org/software/wget/'
-    ]);
+];
+
+$commands = get_commands($requirements);
 
 if (empty($commands)) {
+    verbose("Error: Missing commands.", $commands);
     exit;
 }
 
@@ -72,7 +75,7 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
 
 $do = [];
 foreach ([
-'verbose'                 => ['v', 'verbose'],
+ 'verbose'                 => ['v', 'verbose'],
  'test'                    => ['t', 'test'],
  'debug'                   => ['d', 'debug'],
  'test'                    => ['t', 'test'],
@@ -123,17 +126,32 @@ define('VERBOSE', (int) $do['verbose']);
 define('TEST', (int) $do['test']);
 define('UNLINK', (int) $do['unlink']);
 define('OFFLINE', (int) $do['offline']);
-
 debug("COMMANDS:", $commands);
+debug('OPTIONS:', $do);
 
-debug('Tasks to perform:', $do);
-
+//-----------------------------------------------------------------------------
 // help
 if (empty($options) || array_key_exists('h', $options) || array_key_exists('help',
         $options)) {
     options:
-    echo join("\n",
+
+    $readme_file = 'README.md';
+    if (file_exists($readme_file)) {
+        $readme = file_get_contents('README.md');
+        if (!empty($readme)) {
+            output($readme . "\n");
+        }
+    }
+
+    print "Requirements:\n";
+    foreach ($requirements as $cmd => $desc) {
+        printf("%s:\n\t%s\n", $cmd, $desc);
+    }
+
+    print join("\n",
         [
+        "\nUsage: php resolve.php -u <URL>",
+        "\n\tUnshorten a URL, returning the text, CURL error code or -22 (wget failure) if other URL failure\n",
         "Usage: php tweets.php",
         "Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified tweet text is a new attribute: text",
         "(Specifying any other unknown argument options will be ignored.)\n",
@@ -198,9 +216,9 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
     // goto jump here if there's a problem
     errors:
     if (!empty($errors)) {
-        echo "Error(s):\n\t- " . join("\n\t- ", $errors) . "\n";
+        output("Error(s):\n\t- " . join("\n\t- ", $errors) . "\n");
     } else {
-        echo "No errors occurred.\n";
+        output("No errors occurred.\n");
     }
     exit;
 }
@@ -1148,6 +1166,10 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
 
                     foreach ($entity['video_info']['variants'] as $video) {
 
+                        if (!array_key_exists('bitrate', $video)) {
+                            continue;
+                        }
+
                         // construct the local filename, then later check it exists
                         $media_file   = basename($video['url']);
                         $media_file2  = $tweet_id . '-' . $media_file;
@@ -1197,7 +1219,7 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
                             }
                         }
                     }
-                    if (!$found) { // missing at least one local video for the various bitrates
+                    if (!$found && count($bitrates)) { // missing at least one local video for the various bitrates
                         debug("Found no video variant:",
                             $entity['video_info']['variants']);
                         // detect highest bitrate url
@@ -1308,7 +1330,7 @@ if ($do['keys-filter']) {
 
         verbose('Filtering tweets to show only keys…', $only_keys);
 
-        if (!empty($only_keys) && !empy($tweets) && is_array($tweets)) {
+        if (!empty($only_keys) && !empty($tweets) && is_array($tweets)) {
             foreach ($tweets as $tweet_id => $tweet) {
                 foreach ($tweet as $k => $v) {
                     if (!in_array($k, $only_keys)) {
@@ -2053,11 +2075,29 @@ if (!empty($output)) {
 }
 
 debug(sprintf("Memory used (%s) MB (current/peak).", get_memory_used()));
-echo "\n";
+output("\n");
 exit;
 
 //-----------------------------------------------------------------------------
 // functions used above
+
+
+/**
+ * Output string, to STDERR if available
+ *
+ * @param  string { string to output
+ * @param  boolean $STDERR write to stderr if it is available
+ */
+function output($text, $STDERR = true)
+{
+    if (!empty($STDERR) && defined('STDERR')) {
+        fwrite(STDERR, $text);
+    } else {
+        echo $text;
+    }
+}
+
+
 
 /**
  * Dump debug data if DEBUG constant is set
@@ -2069,9 +2109,9 @@ exit;
 function debug($string = '', $data = [])
 {
     if (DEBUG) {
-        echo trim('[D ' . get_memory_used() . '] ' . $string) . "\n";
+        output(trim('[D ' . get_memory_used() . '] ' . $string) . "\n");
         if (!empty($data)) {
-            print_r($data);
+            output(print_r($data,1));
         }
         return true;
     }
@@ -2089,9 +2129,9 @@ function debug($string = '', $data = [])
 function verbose($string, $data = '')
 {
     if (VERBOSE && !empty($string)) {
-        echo trim('[V' . ((DEBUG) ? ' ' . get_memory_used() : '') . '] ' . $string) . "\n";
+        output(trim('[V' . ((DEBUG) ? ' ' . get_memory_used() : '') . '] ' . $string) . "\n");
         if (!empty($data)) {
-            print_r($data);
+            output(print_r($data,1));
         }
         return true;
     }
@@ -2100,9 +2140,9 @@ function verbose($string, $data = '')
 
 
 /**
- * Get memory used MB
+ * Return the memory used by the script, (current/peak)
  *
- * @return string memory used in MB
+ * @return string memory used
  */
 function get_memory_used()
 {
@@ -2144,7 +2184,7 @@ function get_commands($requirements = [])
     }
 
     if (!empty($errors)) {
-        echo join("\n", $errors) . "\n";
+        output(join("\n", $errors) . "\n");
     }
 
     return $commands;

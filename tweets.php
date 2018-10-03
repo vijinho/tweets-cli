@@ -1314,61 +1314,6 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
 }
 
 //-----------------------------------------------------------------------------
-// filter tweets on the keys specified on the  command-line
-
-if ($do['keys-filter']) {
-
-    $only_keys = [];
-    if (!empty($options['s'])) {
-        $only_keys = $options['s'];
-    } elseif (!empty($options['keys-filter'])) {
-        $only_keys = $options['keys-filter'];
-    }
-
-    if (!empty($only_keys)) {
-        $only_keys = preg_split("/,/", $only_keys);
-
-        verbose('Filtering tweets to show only keys…', $only_keys);
-
-        if (!empty($only_keys) && !empty($tweets) && is_array($tweets)) {
-            foreach ($tweets as $tweet_id => $tweet) {
-                foreach ($tweet as $k => $v) {
-                    if (!in_array($k, $only_keys)) {
-                        unset($tweet[$k]);
-                    }
-                }
-                $tweets[$tweet_id] = $tweet;
-            }
-        }
-    }
-}
-
-//-----------------------------------------------------------------------------
-// we have a $tweets array of all of the tweets we can do our next
-// stripping out of the attributes/keys if they were specified
-// on the command-line
-
-$remove_keys = [];
-
-if (!empty($options['k'])) {
-    $remove_keys = $options['k'];
-} elseif (!empty($options['keys-remove'])) {
-    $remove_keys = $options['keys-remove'];
-}
-
-if (!empty($remove_keys)) {
-    $remove_keys = preg_split("/,/", $remove_keys);
-    verbose('Removing keys from tweets…', $remove_keys);
-    if (!empty($remove_keys) && is_array($remove_keys)) {
-        $tweets = array_clear($tweets, $remove_keys);
-    }
-} else if (!$do['grailbird'] && !empty($tweets) && is_array($tweets)) {
-    debug('Removing empty values from tweets…');
-    $tweets = array_clear($tweets);
-}
-
-
-//-----------------------------------------------------------------------------
 // go online and check and resolve the urls found in $urls up to this point
 
 if ($do['urls-resolve'] && !OFFLINE) {
@@ -2005,6 +1950,63 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
     } else {
         debug(sprintf("Wrote grailbird tweet index data file: %s", $filename));
     }
+}
+
+
+//-----------------------------------------------------------------------------
+// we have a $tweets array of all of the tweets we can do our next
+// stripping out of the attributes/keys if they were specified
+// on the command-line
+
+$remove_keys = [];
+
+if (!empty($options['k'])) {
+    $remove_keys = $options['k'];
+} elseif (!empty($options['keys-remove'])) {
+    $remove_keys = $options['keys-remove'];
+}
+
+if (!empty($remove_keys)) {
+    $remove_keys = preg_split("/,/", $remove_keys);
+    verbose('Removing keys from tweets…', $remove_keys);
+    if (!empty($remove_keys) && is_array($remove_keys)) {
+        $tweets = array_clear($tweets, $remove_keys);
+    }
+}
+
+//-----------------------------------------------------------------------------
+// filter tweets on the keys specified on the  command-line
+
+if ($do['keys-filter']) {
+
+    $only_keys = [];
+    if (!empty($options['s'])) {
+        $only_keys = $options['s'];
+    } elseif (!empty($options['keys-filter'])) {
+        $only_keys = $options['keys-filter'];
+    }
+
+    if (!empty($only_keys)) {
+        $only_keys = preg_split("/,/", $only_keys);
+
+        verbose('Filtering tweets to show only keys…', $only_keys);
+
+        if (!empty($only_keys) && !empty($tweets) && is_array($tweets)) {
+            foreach ($tweets as $tweet_id => $tweet) {
+                foreach ($tweet as $k => $v) {
+                    if (!in_array($k, $only_keys)) {
+                        unset($tweet[$k]);
+                    }
+                }
+                $tweets[$tweet_id] = $tweet;
+            }
+        }
+    }
+}
+
+if (!empty($tweets) && is_array($tweets)) {
+    debug('Removing empty values from tweets…');
+    $tweets = array_clear($tweets);
 }
 
 //-----------------------------------------------------------------------------

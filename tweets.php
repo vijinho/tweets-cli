@@ -10,11 +10,8 @@
  * @license GPLv3 (http://www.gnu.org/licenses/gpl-3.0.html)
  */
 ini_set('default_charset', 'utf-8');
-ini_set('mbstring.internal_encoding', 'utf-8');
 ini_set('mbstring.encoding_translation', 'On');
-ini_set('mbstring.http_output', 'UTF-8');
 ini_set('mbstring.func_overload', 6);
-iconv_set_encoding("internal_encoding", "UTF-8");
 
 //-----------------------------------------------------------------------------
 // required commands check
@@ -44,17 +41,23 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'format:',
     'filename:',
     'grailbird:',
+    'grailbird-import:',
     'list',
     'list-js',
     'list-images',
     'list-videos',
+    'list-users',
+    'list-missing-media',
+    'download-missing-media',
+    'list-profile-images',
+    'download-profile-images',
     'tweets-file:',
     'tweets-count',
     'tweets-all',
     'date-from:',
     'date-to:',
     'regexp:',
-    'regexp-save',
+    'regexp-save:',
     'no-retweets',
     'no-mentions',
     'urls-expand',
@@ -62,10 +65,10 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'offline',
     'local',
     'delete',
+    'dupes',
     'keys-remove:',
     'keys-filter:'
     ]);
-
 
 $do = [];
 foreach ([
@@ -74,10 +77,16 @@ foreach ([
  'debug'        => ['d', 'debug'],
  'test'         => ['t', 'test'],
  'grailbird'    => ['g', 'grailbird'],
+ 'grailbird-import'    => [null, 'grailbird-import'],
  'list'         => [null, 'list'],
  'list-js'      => [null, 'list-js'],
  'list-images'  => [null, 'list-images'],
  'list-videos'  => [null, 'list-videos'],
+ 'list-users'   => [null, 'list-users'],
+ 'list-missing-media'   => [null, 'list-missing-media'],
+ 'download-missing-media'   => [null, 'download-missing-media'],
+ 'list-profile-images'   => [null, 'list-profile-images'],
+ 'download-profile-images'   => [null, 'download-profile-images'],
  'tweets-count' => [null, 'tweets-count'],
  'tweets-all'   => ['a', 'tweets-all'],
  'no-retweets'  => [null, 'no-retweets'],
@@ -87,6 +96,7 @@ foreach ([
  'offline'      => ['o', 'offline'],
  'local'        => ['l', 'local'],
  'unlink'       => ['x', 'delete'],
+ 'dupes'        => [null, 'dupes'],
  'keys-remove'  => ['r', 'keys-remove'],
  'keys-filter'  => ['k', 'keys-filter'],
 ] as $i => $opts) {
@@ -98,6 +108,10 @@ if (array_key_exists('debug', $do) && !empty($do['debug'])) {
 }
 if (array_key_exists('urls-resolve', $options)) {
     $do['urls-expand'] = 1;
+}
+if (array_key_exists('list-missing-media', $do)) {
+    $do['local'] = 1;
+    $do['tweets-all'] = 1;
 }
 ksort($do);
 
@@ -132,12 +146,18 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t     --format={json}          Output format for script data: txt|php|json (default)",
         "\t-f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'",
         "\t-g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir",
+        "\t     --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.",
         "\t     --list                   Only list all files in export folder and halt - filename",
         "\t     --list-js                Only List all javascript files in export folder and halt",
         "\t     --list-images            Only list all image files in export folder and halt",
         "\t     --list-videos            Only list all video files in export folder and halt",
+        "\t     --list-users             Only list all users in tweets, (default filename 'users.json') and halt",
+        "\t     --list-missing-media     List media URLs for which no local file exists and halt (implies --local)",
+        "\t     --download-missing-media Download missing media (from --list-missing-media) and halt, e.g.. missing media files (implies --local)",
+        "\t     --list-profile-images    Only list users profile images, (in filename 'users.json') and halt",
+        "\t     --download-profile-images  WARNING: This can be a lot of users! Download profile images.",
+        "\t     --tweets-count           Only show the total number of tweets and halt",
         "\t-i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'",
-        "\t     --tweets-count           Only show the total number of tweets",
         "\t-a,  --tweets-all             Get all tweets (further operations below will depend on this)",
         "\t     --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php",
         "\t     --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php ",
@@ -148,22 +168,31 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t-o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)",
         "\t-l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)",
         "\t-x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files",
+        "\t     --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!",
         "\t-r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')",
         "\t-k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)",
-        "\t     --regexp                 Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
-        "\t     --regexp-save            Save --regexp results in the tweet under the key 'regexps'",
+        "\t     --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
+        "\t     --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given",
         "\nExamples:",
+        "Report duplicate tweet media files and output to 'dupes.json':\n\tphp tweets-cli/tweets.php -fdupes.json --dupes",
         "Show total tweets in tweets file:\n\tphp tweets.php --tweets-count --verbose",
-        "Show javascript files in backup folder:\n\tphp tweets.php --list-js --debug",
+        "Write all users mentioned in tweets to file 'users.json':\n\tphp tweets.php --list-users --verbose",
+        "Show javascript files in backup folder:\n\tphp tweets.php --list-js --verbose",
         "Resolve all URLs in 'tweet.js' file, writing output to 'tweet.json':\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json",
         "Resolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json --grailbird=grailbird",
         "Get tweets, only id, created and text keys:\n\tphp tweets.php -v -a -o -u --keys-filter=id,created_at,text",
         "Get tweets from 1 Jan 2017 to 'last friday':\n\tphp tweets.php -v -a -o -u --date-from '2017-01-01' --date-to='last friday'",
-        "Filter tweet text on word 'hegemony' since last year\n\t php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save",
-        "Generate grailbird files with expanded/resolved URLs:\n\tphp tweets.php --tweets-all --debug --urls-expand --urls-resolve --grailbird=grailbird",
-        "Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:\n\tphp tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --grailbird=grailbird",
-        "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:\n\tphp tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --local --grailbird=grailbird",
-        "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:\n\tphp tweets.php --tweets-all --debug --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird"
+        "Filter tweet text on word 'hegemony' since last year\n\t php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony",
+        "Generate grailbird files with expanded/resolved URLs:\n\tphp tweets.php --tweets-all --verbose --urls-expand --urls-resolve --grailbird=grailbird",
+        "Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --grailbird=grailbird",
+        "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --grailbird=grailbird",
+        "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird",
+        "Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':\n\tphp tweets-cli/tweets.php --delete --dupes",
+        "Extract the first couple of words of the tweet and name the saved regexp 'words':\n\ttweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words",
+        "Import grailbird files from 'import/data/js/tweets':\n\tphp tweets.php --grailbird-import=import/data/js/tweets --verbose",
+        "Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:\n\tphp tweets-cli/tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose",
+        "List URLs for which there are missing local media files:\n\tphp tweets.php --list-missing-media --verbose",
+        "Download files from URLs for which there are missing local media files:\n\tphp tweets.php -a --download-missing-media --verbose"
     ]) . "\n";
 
     // goto jump here if there's a problem
@@ -203,6 +232,7 @@ $url_shorteners = [// dereference & update URLs if moved or using shortener whic
     'wpo.st', 'wrd.cm', 'wrld.bg', 'www.goo.gl', 'xhne.ws', 'yhoo.it', 'youtu.be'
 ];
 
+
 /*
  * Bad shorteners, trouble resolving:
  *  amzn.com
@@ -234,6 +264,10 @@ $online_sleep       = OFFLINE ? 0 : 0.1; // time to wait between each online ope
 debug("save_every: " . $save_every);
 debug("online_sleep_under: " . $online_sleep_under);
 debug("online_sleep: " . $online_sleep);
+
+$tweets = [];
+$tweets_count = 0;
+$missing_media = []; // missing local media files, [filename => source url]
 
 //-----------------------------------------------------------------------------
 // set the script output format to one of (json, php, text)
@@ -279,13 +313,43 @@ if (!empty($options['dir-output'])) {
     $output_dir = $dir;
 }
 
-$output_dir = realpath($outputdir);
+if (!empty($output_dir)) {
+    $output_dir = realpath($output_dir);
+}
 if (empty($output_dir) || !is_dir($output_dir)) {
     $errors[] = "You must specify a valid output directory!";
     goto errors;
 }
 
 verbose(sprintf("OUTPUT DIR: %s", $output_dir));
+
+//-----------------------------------------------------------------------------
+// get directory for importing grailbird data and js files there-in
+
+if ($do['grailbird-import']) {
+
+    $grailbird_import_dir = '';
+    if (!empty($options['grailbird-import'])) {
+        $grailbird_import_dir = $options['grailbird-import'];
+    } else {
+        $grailbird_import_dir = $dir . '/import/data/js/tweets';
+    }
+
+    $grailbird_import_dir = realpath($grailbird_import_dir);
+    if (empty($grailbird_import_dir) || !is_dir($grailbird_import_dir)) {
+        $errors[] = "You must specify a valid grailbird import directory!";
+        goto errors;
+    }
+    verbose(sprintf("GRAILBIRD IMPORT DIR: %s", $grailbird_import_dir));
+
+    $grailbird_files = files_js($grailbird_import_dir);
+    if (empty($grailbird_files)) {
+        $errors[] = sprintf("No grailbird js files found to import in: %s!", $grailbird_import_dir);
+        goto errors;
+    }
+
+    ksort($grailbird_files);
+}
 
 //-----------------------------------------------------------------------------
 // directory for grailbird output
@@ -334,6 +398,15 @@ if (!empty($output_filename)) {
 }
 
 //-----------------------------------------------------------------------------
+// users data filename
+
+if ($do['list-users']) {
+    $users_filename = empty($output_filename) ? 'users.json' : $output_filename;
+} else {
+    $users_filename = 'users.json';
+}
+
+//-----------------------------------------------------------------------------
 // get date from/to from command-line
 
 if (!empty($options['date-from'])) {
@@ -375,7 +448,7 @@ if (!empty($regexp)) {
     verbose(sprintf("Filtering tweets with regular expression '%s'",
             $options['regexp']));
 }
-$regexp_save = array_key_exists('regexp-save', $options);
+$regexp_save = array_key_exists('regexp-save', $options) ?  $options['regexp-save'] : false;
 
 if (!empty($errors)) {
     goto errors;
@@ -383,25 +456,16 @@ if (!empty($errors)) {
 
 //-----------------------------------------------------------------------------
 // pre-fetch all files in advance if a list command-line option was specified
-if ($do['list'] || $do['list-images'] || $do['list-videos'] || $do['list-js'] || $do['local']) {
+if ($do['list'] || $do['local']
+    || $do['dupes']) {
     debug('Pre-fetching files list from: ' . $dir);
-
     $files = files_list($dir);
     if (empty($files)) {
         $errors[] = "No files found!";
         goto errors;
     }
-}
-
-//-----------------------------------------------------------------------------
-// prepare arrays for file list data
-// $files, $images, $videos, $js and append to $output
-if ($do['list']) {
-    verbose('Listing files…');
-
-    debug('Files:', $files);
-    $output = $files;
-    goto output;
+} else {
+    $files = [];
 }
 
 if ($do['list-images'] || $do['local']) {
@@ -437,6 +501,149 @@ if ($do['list-js'] || $do['local']) {
 }
 
 //-----------------------------------------------------------------------------
+// prepare arrays for file list data
+// $files, $images, $videos, $js and append to $output
+if ($do['list']) {
+    verbose('Listing files…');
+    debug('Files:', $files);
+    $output = $files;
+    goto output;
+}
+
+//-----------------------------------------------------------------------------
+// delete duplicates
+if ($do['dupes']) {
+
+    verbose("Finding duplicate files...");
+
+    // create file keys index of key => paths
+    $keys = [];
+    foreach ($files as $file => $path) {
+        // split on - because filename is {tweet_id}-{media_id}.{ext}
+        if (!preg_match("/(?P<tweet_id>^[\d]+)-(?P<key>[^\.]+)\.(?P<ext>.+)/",
+                $file, $parts)) {
+            continue;
+        }
+        $key = $parts['key']; // e.g. EYt4vLLw.jpg
+        if (array_key_exists($key, $keys)) {
+            verbose(sprintf("Duplicate file found: %s\n\t%s\n\t%s", $key,
+                    $keys[$key][0], $path));
+        }
+        $keys[$key][] = $path;
+    }
+
+    // filter file keys to remove where only 1 match occurred for the key
+    foreach ($keys as $key => $paths) {
+        // skip where the file only occurred once
+        if (1 === count($paths)) {
+            unset($keys[$key]);
+            continue;
+        }
+    }
+
+    if (empty($keys)) {
+        verbose("No duplicate files found.");
+        goto output;
+    }
+
+    verbose(sprintf("Files duplicated: %d", count($keys)));
+
+    // go to end if no --delete specified
+    $output = $keys;
+    if (!UNLINK) {
+        goto output;
+    }
+
+    // we are going to delete unless used with --test
+    if (TEST) {
+        verbose("TEST: No files will actually be deleted!");
+    }
+
+    $deletes = [];
+
+    // find deletable non tweets_media files
+    foreach ($keys as $filename => $paths) {
+        foreach ($paths as $p => $path) {
+            // delete the 'direct_message_media' and 'moments_tweets_media' dupe files first but not 'media_tweets'
+            if (false !== stristr($path, '/direct_message_media/') ||
+                false !== stristr($path, '/moments_tweets_media/')) {
+                $deletes[] = $path;
+                unset($paths[$p]);
+            }
+        }
+        sort($paths); // need to do this to reset the index numbering to 0, 1, 2...
+        $keys[$filename] = $paths;
+    }
+
+    // find all other duplicated files to delete and also rename
+    $renames = [];
+    foreach ($keys as $key => $paths) {
+        if (1 === count($paths)) {
+            // we only have 1 file left for the key, so we keep it
+            // rename the file now to {id}.{ext}
+            $renames[$paths[0]] = stristr($paths[0], $key);
+            continue;
+        }
+
+        // keep the first file
+        $renames[$paths[0]] = stristr($paths[0], $key);
+        unset($paths[0]); // remove first element
+        if (empty($paths)) {
+            continue;
+        }
+
+        // all other files for the key can be left can be deleted
+        foreach ($paths as $p => $path) {
+            $deletes[] = $path;
+        }
+        unset($keys[$key]);
+    }
+
+    ksort($renames);
+    if (DEBUG) {
+        debug(sprintf("Files to rename: %d", count($renames)), $renames);
+    } else {
+        verbose(sprintf("Files to rename: %d", count($renames)));
+    }
+    foreach ($renames as $from => $to) {
+        // prepend path of $from file to $to before renaming
+        $to = substr($from, 0, strrpos($from, '/') + 1) . $to;
+        if (TEST) {
+            verbose("Renaming (NOT!): $from => $to");
+        } else {
+            verbose("Renaming: $from => $to");
+            if (!rename($from, $to)) {
+                $errors[] = "Error renaming file: $from => $to";
+            }
+        }
+    }
+
+    ksort($deletes);
+    if (DEBUG) {
+        debug(sprintf("Files to delete: %d", count($deletes)), $deletes);
+    } else {
+        verbose(sprintf("Files to delete: %d", count($deletes)));
+    }
+    foreach ($deletes as $path) {
+        if (TEST) {
+            verbose('Deleting (NOT!): ' . $path);
+        } else {
+            verbose('Deleting: ' . $path);
+            if (!unlink($path)) {
+                $errors[] = "Error deleting file: $path";
+            }
+        }
+    }
+
+    if (empty($errors)) {
+        goto errors;
+    }
+
+    $output = [];
+    goto output;
+}
+
+//-----------------------------------------------------------------------------
 // return total number of tweets
 
 if ($do['tweets-count']) {
@@ -451,7 +658,7 @@ if ($do['tweets-count']) {
 //-----------------------------------------------------------------------------
 // fetch tweets - all
 
-if ($do['tweets-all']) {
+if ($do['tweets-all'] || $do['list-users']) {
     // load in all tweets
     verbose(sprintf("Loading tweets from '%s'", $tweets_file));
 
@@ -466,6 +673,162 @@ if ($do['tweets-all']) {
     $tweets_count = count($tweets);
 
     verbose(sprintf("Tweets loaded: %d", $tweets_count));
+}
+
+//-----------------------------------------------------------------------------
+// get directory for importing grailbird data and js files there-in
+
+if ($do['grailbird-import']) {
+
+    debug(sprintf("Importing tweets from '%s'", $grailbird_import_dir), $grailbird_files);
+
+    if (empty($tweets)) {
+        $tweets = [];
+    } else {
+
+        verbose("Indexing pre-loaded tweets…");
+
+        foreach ($tweets as $t => $tweet) {
+            // unset because we will be re-writing the tweet index and the number
+            // is going to be using the tweet id which is a much higher value
+            unset($tweets[$t]);
+
+            // store $tweet[id] into $tweets array
+            $tweets[$tweet['id']] = $tweet;
+        }
+    }
+
+    foreach ($grailbird_files as $f) {
+        $data = json_load_twitter($grailbird_import_dir, basename($f));
+        if (!is_array($data)) {
+            $errors = sprintf("No data found in file: %s", $f);
+            goto errors;
+        }
+
+        debug(sprintf('Importing tweets from: %s', $f));
+
+        // merge each tweet
+        foreach ($data as $i => $tweet) {
+            unset($data[$i]);
+
+            $tweet_id = $tweet['id'];
+            // didn't exist, add to $tweets and continue
+            if (!array_key_exists($tweet_id, $tweets)) {
+                if ($do['tweets-all']) {
+                    debug(sprintf('Adding new tweet: %d', $tweet_id));
+                }
+                $tweets[$tweet_id] = $tweet;
+                continue;
+            }
+
+            // already in $tweets, merge it
+            $tweets[$tweet_id] = array_replace_recursive($tweets[$tweet_id], $tweet);
+        }
+    }
+
+    unset($data);
+}
+
+//-----------------------------------------------------------------------------
+// list all users
+
+verbose("Getting all users mentioned in tweets…");
+
+$users      = json_load($users_filename);
+if (!is_string($users)) {
+    $users_count = count($users);
+    verbose(sprintf("Loaded %d previously saved users from '%s'", $users_count, $users_filename));
+} else {
+    $users = [];
+    $users_count = 0;
+}
+
+foreach ($tweets as $t => $tweet) {
+
+    // get user from retweeted_status/user_mentions, if exists, add/replace
+    // NOTE: this only exists in the old/standard twitter backup files, not in the huge tweet.js file
+    // if using therefore with --grailbird-import it will get executed
+    if (array_key_exists('retweeted_status', $tweet)) {
+        $user = $tweet['retweeted_status']['user'];
+        $screen_name = $user['screen_name'];
+        if (!array_key_exists($screen_name, $users)) {
+            debug(sprintf("Adding entry for user %d: @%s (%s)", $user['id'], $screen_name, $user['name']));
+            $users[$user['screen_name']] = $user;
+        } else {
+            $users[$user['screen_name']] = array_replace_recursive($users[$screen_name], $user);
+        }
+    }
+
+    // get users from entities/user_mentions
+    // this should only add new values, not replace any, because only extra data is in retweeted_status/user entry
+    if (!empty($tweet['entities']) && array_key_exists('user_mentions', $tweet['entities'])) {
+        $user_mentions = $tweet['entities']['user_mentions'];
+        foreach ($user_mentions as $i => $user) {
+            if (array_key_exists($user['screen_name'], $users)) {
+                continue;
+            }
+            unset($user['indices']);
+            debug(sprintf("Adding entry for user %d: @%s (%s)", $user['id'], $user['screen_name'], $user['name']));
+            // deleted users have id -1
+            $users[$user['screen_name']] = $user;
+        }
+    }
+}
+
+if (count($users) > $users_count) {
+    verbose(sprintf("New users added: %d. Total users: %d", count($users) - $users_count, count($users)));
+    $users_count = count($users);
+}
+ksort($users);
+
+$profile_images = [];
+// adds 'profile_image_file ' to user for where the local file should be stored
+foreach ($users as $screen_name => $user) {
+    if (empty($user) || !is_array($user) || !array_key_exists('profile_image_url_https', $user)) {
+        continue;
+    }
+
+    // create the 'profile_media' filename
+    $url = $user['profile_image_url_https'];
+    $filename = $dir . '/profile_media/' . $user['id'] . '-' . str_replace('_normal', '', basename($url));
+    $users[$screen_name]['profile_image_file'] = $filename; // this will be the local filename
+
+    // skip if the file exists (your own user should be here!)
+    if (file_exists($filename)) {
+        continue;
+    }
+
+    if ($do['list-profile-images']) {
+        $profile_images[$filename] = $url;
+    } else if ($do['download-profile-images']) {
+        $missing_media[$filename] = $url;
+    }
+}
+
+// go to end and write file if --list-users, or continue processing after
+if ($do['list-users']) {
+    $output = $users;
+    goto output;
+}
+
+debug("Saving: $users_filename");
+$save = json_save($users_filename, $users);
+if (true !== $save) {
+    $errors[] = "\nFailed encoding JSON output file: $users_filename\n";
+    $errors[] = "\nJSON Error: $save\n";
+    goto errors;
+}
+
+// finish if listing profile images
+if ($do['list-profile-images']) {
+    ksort($profile_images);
+    $output = $profile_images;
+    goto output;
+}
+
+// if not processing all tweets, lose the tweets
+if (!$do['tweets-all']) {
+    $tweets = [];
 }
 
 //-----------------------------------------------------------------------------
@@ -491,13 +854,22 @@ if (DEBUG && !empty($urls)) {
     foreach ($urls as $url => $target) {
         $u = parse_url($url);
         if (!empty($u['host'])) {
+            if (!array_key_exists($u['host'], $rurls)) {
+                $rurls[$u['host']] = 0;
+            }
             $rurls[$u['host']] ++;
         }
         $t = parse_url($target);
         if (!empty($t['host'])) {
+            if (!array_key_exists($t['host'], $targets)) {
+                $targets[$t['host']] = 0;
+            }
             $targets[$t['host']] ++;
         } else if (count(1 == count($t))) {
             $unresolved[$url] = $target;
+            if (!array_key_exists($target, $curl_errors)) {
+                $curl_errors[$target] = 0;
+            }
             $curl_errors[$target] ++;
         }
     }
@@ -535,14 +907,29 @@ foreach ($tweets as $t => $tweet) {
 
     // unset because we will be re-writing the tweet index and the number
     // is going to be using the tweet id which is a much higher value
-    unset($tweets[$t]);
+    // already done this if we imported grailbird files
+    if (!$do['grailbird-import']) {
+        unset($tweets[$t]);
+    }
+
+    // this situation occurs when importing grailbird js files
+    if (!array_key_exists('full_text', $tweet)) {
+        $tweet['full_text'] = $tweet['text'];
+    }
 
     // drop retwwets if required
     // drop mentions (on initial tweet char being @)
-    if (($do['no-retweets'] && 'RT' == substr($tweet['full_text'], 0, 2)) ||
+    $is_rt = 'RT' == substr($tweet['full_text'], 0, 2);
+    if (($do['no-retweets'] && $is_rt) ||
         ($do['no-mentions'] && '@' == substr($tweet['full_text'], 0, 1))) {
         $tweets_count--;
         continue;
+    }
+        // get the RT'd username and save to 'rt'
+    if ($is_rt) {
+        if (preg_match("/^RT\s+@(?P<screen_name>[^:\s]+)/i", $tweet['full_text'], $matches)) {
+            $tweet['rt'] = $matches['screen_name']; // set RT'd user
+        }
     }
 
     // create unix timestamp 'created_at_unixtime' converted from date/time
@@ -569,6 +956,7 @@ foreach ($tweets as $t => $tweet) {
         } else if (!empty($regexp_save)) {
             // add regular expression result to tweet
             $tweet['regexps'][] = [
+                'name'    => $regexp_save,
                 'regexp'  => $regexp,
                 'matches' => $matches
             ];
@@ -659,7 +1047,7 @@ foreach ($tweets as $t => $tweet) {
 
 
     // store $tweet[id] into $tweets array
-    $tweets[$tweet['id']] = $tweet;
+    $tweets[$tweet_id] = $tweet;
 }
 
 verbose(sprintf("Tweets to be processed: %d", $tweets_count));
@@ -670,6 +1058,8 @@ verbose(sprintf("Tweets to be processed: %d", $tweets_count));
 
 if ($do['local']) {
 
+    verbose("Searching tweets for media files...");
+
     // detect the locally saved twitter media files
     $to_delete = []; // files to delete
 
@@ -679,13 +1069,50 @@ if ($do['local']) {
         $search    = $replace   = [];
         $full_text = $tweet['text'];
 
-        // find the images for the tweet
+        // find the files for the tweet
         if (!empty($tweet['entities']['media'])) {
-            foreach ($tweet['entities']['media'] as $entity) {
-                // construct the local image filename and check it exists
-                $filename = $entity['source_status_id'] . '-' . basename($entity['media_url']);
-                if (array_key_exists($filename, $images)) {
-                    $tweet['images'][$filename] = $images[$filename];
+            $extended_entities = empty($tweet['extended_entities']['media']) ? [] : $tweet['extended_entities']['media'];
+            foreach ([$tweet['entities']['media'], $extended_entities] as $entities) {
+                if (empty($entities)) {
+                    continue;
+                }
+                foreach ($tweet['entities']['media'] as $entity) {
+                    // construct the local filename, then later check it exists
+                    $media_file = basename($entity['media_url_https']);
+                    $media_file2 = $tweet_id . '-' . $media_file;
+                    $search_files = [
+                        $media_file => $media_file,
+                        $media_file2 => $media_file2
+                    ];
+                    if (array_key_exists('source_status_id', $entity)) {
+                        $media_file3 = $entity['source_status_id'] . '-' . $media_file;
+                        $search_files[$media_file3] = $media_file3;
+                    }
+
+                    // check if the filename is just {id}.{ext} instead of {tweet_id}-{id}.{ext}
+                    $found = false; // found local file
+                    foreach ($search_files as $file) {
+                        if (array_key_exists($file, $images)) {
+                            $tweet['images'][$file] = $images[$file];
+                            $found = true;
+                            break;
+                        } else if (array_key_exists($file, $videos)) {
+                            $tweet['videos'][$file] = $videos[$file];
+                            $found = true;
+                            break;
+                        } else if (array_key_exists($file, $files)) {
+                            $tweet['files'][$file] = $files[$file];
+                            $found = true;
+                            break;
+                        }
+                    }
+                    if (empty($found)) {
+                        if (!array_key_exists($media_file, $missing_media)) {
+                            debug(sprintf("Missing media file: %s", $media_file), $entity);
+                            $media_file = sprintf($dir . '/tweet_media/%s', $media_file);
+                            $missing_media[$media_file] = $entity['media_url_https'];
+                        }
+                    }
                 }
             }
         }
@@ -694,52 +1121,81 @@ if ($do['local']) {
         if (!empty($tweet['extended_entities']['media'])) {
 
             foreach ($tweet['extended_entities']['media'] as $entity) {
-                // construct the local video filename and check if it exists
-                $filename  = $tweet['id'] . '-' . basename($entity['media_url']);
-                // drop the video url from the 'text'
-                $search[]  = $entity['url'];
-                $replace[] = '';
-                if (array_key_exists($filename, $videos)) {
-                    $tweet['videos'][$filename] = $videos[$filename];
-                }
 
                 // detect the video files if different bitrates for same content
                 if (!empty($entity['video_info']['variants'])) {
+
+                    $found = false; // found video
                     $bitrates = []; // store filenames of local videos of different bitrates
 
                     foreach ($entity['video_info']['variants'] as $video) {
-                        $vid      = basename($video['url']);
-                        $filename = $tweet['id'] . '-' . $vid;
-                        // check if the video file exists by detecting filename to search for
-                        if (array_key_exists($filename, $videos)) {
-                            $tweet['videos'][$filename]  = $videos[$filename];
-                            $bitrates[$video['bitrate']] = $filename;
-                        } else {
-                            $filename = substr($filename, 0,
-                                strpos($filename, '?'));
+
+                        // construct the local filename, then later check it exists
+                        $media_file = basename($video['url']);
+                        $media_file2 = $tweet_id . '-' . $media_file;
+                        $search_files = [
+                            $media_file => $media_file,
+                            $media_file2 => $media_file2
+                        ];
+                        if (array_key_exists('source_status_id', $entity)) {
+                            $media_file3 = $entity['source_status_id'] . '-' . $media_file;
+                            $search_files[$media_file3] = $media_file3;
+                        }
+
+                        foreach ($search_files as $filename) {
+                            // check if the video file exists by detecting filename to search for
                             if (array_key_exists($filename, $videos)) {
+                                $found = true;
+                                //debug("Found video: $filename");
                                 $tweet['videos'][$filename]  = $videos[$filename];
                                 $bitrates[$video['bitrate']] = $filename;
+                            } else {
+                                $filename = substr($filename, 0,
+                                    strpos($filename, '?'));
+                                if (array_key_exists($filename, $videos)) {
+                                    $found = true;
+                                    //debug("Found video 2: $filename");
+                                    $tweet['videos'][$filename]  = $videos[$filename];
+                                    $bitrates[$video['bitrate']] = $filename;
+                                }
+                            }
+                        }
+
+                        // remove the low bitrate files from new 'videos' attribute
+                        if (!empty($bitrates)) {
+                            $max  = max(array_keys($bitrates)); // keep max bitrate file
+                            $keep = $bitrates[$max];
+                            foreach ($tweet['videos'] as $filename => $path) {
+                                if (file_exists($path) && 0 !== filesize($path)) {
+                                    if ($keep !== $filename) {
+                                        //debug("Found video to delete: $path");
+                                        // remove low bit-rate files to space space
+                                        if (!array_key_exists($path, $to_delete)) {
+                                            $to_delete[$path] = $path; // these are to delete if CLI option specified
+                                        }
+                                        unset($tweet['videos'][$filename]);
+                                    }
+                                }
                             }
                         }
                     }
-
-                    // remove the low bitrate files from new 'videos' attribute
-                    if (!empty($bitrates)) {
-                        $max  = max(array_keys($bitrates));
-                        $keep = $bitrates[$max];
-                        foreach ($tweet['videos'] as $filename => $path) {
-                            if ($keep !== $filename && file_exists($path)) {
-                                // remove low bit-rate files to space space
-                                if (!array_key_exists($path, $to_delete)) {
-                                    $to_delete[$path] = $path; // these are to delete if CLI option specified
-                                }
-                                unset($tweet['videos'][$filename]);
+                    if (!$found) { // missing at least one local video for the various bitrates
+                        debug("Found no video variant:", $entity['video_info']['variants']);
+                        // detect highest bitrate url
+                        $bitrates = [];
+                        foreach ($entity['video_info']['variants'] as $k => $variant) {
+                            if (!array_key_exists('bitrate', $variant)) {
+                                continue;
                             }
+                            $bitrates[$variant['bitrate']] = $variant['url'];
                         }
+                        $url  = $bitrates[max(array_keys($bitrates))];
+                        debug("Highest bitrate: ", $url);
+                        $media_file = sprintf($dir . '/tweet_media/%s', basename($url));
+                        $missing_media[$media_file] = $url;
                     }
                 }
-            }
+             }
         }
 
         // perform the search/replace on urls in 'text'
@@ -751,6 +1207,32 @@ if ($do['local']) {
         }
 
         $tweets[$tweet_id] = $tweet;
+    }
+
+    // show missing media files if --missing-media specified, and finish
+    if ($do['list-missing-media']) {
+        $output = $missing_media;
+        goto output;
+    }
+
+    if ($do['download-missing-media'] || $do['download-profile-images']) {
+        if (!empty($missing_media)) {
+            verbose(sprintf("Downloading:\n\t%s\n\t%s", $url, $path));
+            // download each missing file
+            $i = 0;
+            foreach ($missing_media as $file => $url) {
+                $result = url_download($url, $file);
+                if (true !== $result) {
+                    $errors[] = sprintf("Error downloading %s to %s: %s", $url, $file, $result);
+                    continue;
+                }
+                $i++;
+                sleep(0.25);
+            }
+            verbose("Finished fetching missing files.");
+            $output[] = sprintf("Downloaded %d/%d missing media files.", $i, count($missing_media));
+        }
+        goto output;
     }
 
     // only delete if the command line switch was specified
@@ -774,18 +1256,23 @@ if ($do['local']) {
 
         foreach ($results as $id => $media_files) {
 
-            // check tweet exists, if so, merge files into files keys
-            if (!array_key_exists($id, $tweets)) {
+            if (!is_numeric($id) || !array_key_exists($id, $tweets)) {
                 continue;
             }
 
+            if (!is_array($media_files)) {
+                $media_files = [$media_files];
+            }
+            // check tweet exists, if so, merge files into files keys
             //debug(sprintf("Local content '%s' found for tweet id: %d", $type, $tweets[$id]['id']));
+            if (empty($tweets[$id][$type])) {
+                $tweets[$id][$type] = [];
+            }
             array_merge($tweets[$id][$type], $media_files);
             $tweets[$id][$type] = $media_files;
         }
     }
 }
-
 
 //-----------------------------------------------------------------------------
 // filter tweets on the keys specified on the  command-line
@@ -836,7 +1323,7 @@ if (!empty($remove_keys)) {
         $tweets = array_clear($tweets, $remove_keys);
     }
 } else if (!$do['grailbird']) {
-    verbose('Removing empty values from tweets…');
+    debug('Removing empty values from tweets…');
     $tweets = array_clear($tweets);
 }
 
@@ -854,8 +1341,7 @@ if ($do['urls-resolve'] && !OFFLINE) {
 
         $urls_checked++; // increment save data counter
         $parts = parse_url($url);
-        if (false == $parts || count($parts) <= 1 || in_array(strtolower($parts['$host']),
-                $hosts_expired)) {
+        if (false == $parts || count($parts) <= 1 || (array_key_exists('host', $parts) && in_array(strtolower($parts['host']), $hosts_expired))) {
             //debug(sprintf("Skipping expired %s for url %s", $host, $url));
             $urls[$url] = 0;
             continue;
@@ -921,8 +1407,7 @@ if ($do['urls-resolve'] && !OFFLINE) {
         // at this point the target was empty OR numeric
         if (in_array($target, $curl_errors_dead)) {
             // will not recheck urls which returned an error code from curl/wget
-            verbose(sprintf("Not checking URL\n\t(%d)%s\n\tReturn code:%s",
-                    $url, $target));
+            debug(sprintf("Not checking URL\n\t(%d)%s", $url, $target));
         } else if (!OFFLINE && !in_array($target, $curl_errors_dead)) {
             // find the target of the source $url
             verbose(sprintf("Checking URL %s", $url));
@@ -1086,54 +1571,69 @@ if ($do['urls-resolve']) {
         $tweet['entities']['hashtags'] = $tweet_hashtags;
 
         // re-build entities user mentions
-        foreach ($tweet['entities']['user_mentions'] as $e => $entity) {
-            $screen_name = $entity['screen_name'];
-            $i           = strpos($tweet['text'], '@' . $screen_name);
-            if (false === $i) {
-                unset($tweet['entities']['user_mentions'][$e]);
-                continue;
+        if (array_key_exists('entities', $tweet) && array_key_exists('user_mentions', $tweet['entities'])) {
+            foreach ($tweet['entities']['user_mentions'] as $e => $entity) {
+                $screen_name = $entity['screen_name'];
+                $i           = strpos($tweet['text'], '@' . $screen_name);
+                if (false === $i) {
+                    unset($tweet['entities']['user_mentions'][$e]);
+                    continue;
+                }
+                $entity['indices']                      = [$i, strlen($screen_name) + 4];
+                $tweet['entities']['user_mentions'][$e] = $entity;
             }
-            $entity['indices']                      = [$i, strlen($screen_name) + 4];
-            $tweet['entities']['user_mentions'][$e] = $entity;
         }
 
         // re-build media entities
         if ($do['local']) {
             $found_entities = [];
-            foreach ($tweet['entities']['media'] as $e => $entity) {
-                $key = $tweet_id . '-' . basename($entity['media_url']);
-                if (!array_key_exists($key, $files)) {
-                    continue;
+
+            if (array_key_exists('entities', $tweet) && array_key_exists('media', $tweet['entities'])) {
+                foreach ($tweet['entities']['media'] as $e => $entity) {
+                    $media_url = basename($entity['media_url_https']);
+                    foreach ([
+                    $media_url, $tweet_id . '-' . $media_url
+                    ] as $key) {
+                        if (!array_key_exists($key, $files)) {
+                            continue;
+                        }
+
+                        $i                              = strlen($tweet['text']); // will append to tweet after!
+                        $path                           = $files[$key];
+                        $url                            = 'file://' . $path;
+                        $entity                         = array_replace_recursive($entity,
+                            [
+                            'url'             => '',
+                            'expanded_url'    => '',
+                            'media_url_https'       => $url,
+                            'media_url_https' => $url,
+                            'display_url'     => '',
+                            'indices'         => [$i, $i + 1],
+                        ]);
+                        $tweet['entities']['media'][$e] = $entity;
+                        $found_entities[$key]           = $entity;
+                    }
                 }
 
-                $i                              = strlen($tweet['text']); // will append to tweet after!
-                $path                           = $files[$key];
-                $url                            = 'file://' . $path;
-                $entity                         = array_replace_recursive($entity,
-                    [
-                    'url'             => '',
-                    'expanded_url'    => '',
-                    'media_url'       => $url,
-                    'media_url_https' => $url,
-                    'display_url'     => '',
-                    'indices'         => [$i, $i + 1],
-                ]);
-                $tweet['entities']['media'][$e] = $entity;
-                $found_entities[$key]           = $entity;
-            }
-
-            // append this to the end of the tweet if entities found
-            if (!empty($found_entities)) {
-                $tweet['text'] .= "\n";
+                // append this to the end of the tweet if entities found
+                if (!empty($found_entities)) {
+                    $tweet['text'] .= "\n";
+                }
             }
 
             // update extended_entities with the above
-            foreach ($tweet['extended_entities']['media'] as $e => $entity) {
-                $key = $tweet_id . '-' . basename($entity['media_url']);
-                if (array_key_exists($key, $found_entities)) {
-                    $entity                                  = array_replace_recursive($entity,
-                        $found_entities[$key]);
-                    $tweet['extended_entities']['media'][$e] = $entity;
+            if (array_key_exists('extended_entities', $tweet) && array_key_exists('media', $tweet['extended_entities'])) {
+                foreach ($tweet['extended_entities']['media'] as $e => $entity) {
+                    $media_url = basename($entity['media_url_https']);
+                    foreach ([
+                    $media_url, $tweet_id . '-' . $media_url
+                    ] as $key) {
+                        if (array_key_exists($key, $found_entities)) {
+                            $entity                                  = array_replace_recursive($entity,
+                                $found_entities[$key]);
+                            $tweet['extended_entities']['media'][$e] = $entity;
+                        }
+                    }
                 }
             }
         }
@@ -1160,7 +1660,11 @@ if ($do['urls-resolve']) {
                 } else if (0 === strpos($host, 'en.')) {
                     $host = substr($host, 3);
                 }
-                $display_url  = '(' . sprintf("%s%s", $host, $parts['path']) . ')';
+                if (!array_key_exists('path', $parts)) {
+                    $display_url  = '(' . sprintf("%s", $host) . ')';
+                } else {
+                    $display_url  = '(' . sprintf("%s%s", $host, $parts['path']) . ')';
+                }
                 $tweet_urls[] = [
                     "url"          => $url,
                     "expanded_url" => $url,
@@ -1280,17 +1784,52 @@ if ($do['grailbird']) {
 
         $tweet = $tweet_default; // need to modify this to match grailbird files
 
-        if (!array_key_exists('user', $tweet)) {
-            $tweet['user'] = $user;
-        }
-
         $tweet['created_at'] = date('Y-m-d h:i:s +0000',
             $tweet['created_at_unixtime']);
         $month_file          = date('Y_m', $tweet['created_at_unixtime']);
 
+        if (!array_key_exists('user', $tweet)) {
+            // not an RT so use loaded $user information
+            if (!array_key_exists('rt', $tweet)) {
+                $tweet['user'] = $user;
+            } else {
+                // is an rt, add user for it
+                $screen_name = $tweet['rt'];
+                if (array_key_exists($screen_name, $users)) {
+                    $u = $users[$screen_name];
+                    // create missing data if not present
+                    if (!array_key_exists('profile_image_url_https', $u)) {
+                        $u = array_replace_recursive([
+                            'name' => $screen_name,
+                            'screen_name' => $screen_name,
+                            'protected' => false,
+                            'id_str' => -1,
+                            'id' => -1,
+                            'verified' => false,
+                            'profile_image_url_https' => 'https:\/\/pbs.twimg.com\/profile_images\/'
+                        ], $u);
+                        $users[$screen_name] = $u;
+                    }
+                } else {
+                    // create dummy expired data for user
+                    $u = [
+                        'name' => $screen_name,
+                        'screen_name' => $screen_name,
+                        'protected' => false,
+                        'id_str' => -1,
+                        'id' => -1,
+                        'verified' => false,
+                        'profile_image_url_https' => 'https:\/\/pbs.twimg.com\/profile_images\/'
+                    ];
+                    $users[$screen_name] = $u;
+                }
+                $tweet['user'] = $u;
+            }
+        }
+
         // remove keys not in grailbord
         foreach (['truncated', 'retweet_count', 'retweeted', 'favorited', 'favorite_count',
-        'possibly_sensitive',
+        'possibly_sensitive', 'rt',
         'lang', 'display_text_range', 'full_text', 'created_at_unixtime', 'extended_entities'] as
                 $key) {
             if (array_key_exists($key, $tweet)) {
@@ -1365,7 +1904,7 @@ unset($urls);
 
 // write tweets array to file by default if no other output specified
 if (empty($output) && !empty($tweets) && is_array($tweets)) {
-    verbose('Removing empty values from tweets again…');
+    debug('Removing empty values from tweets again…');
     $tweets = array_clear($tweets);
     $output = $tweets;
     unset($tweets);
@@ -1416,7 +1955,7 @@ if (!empty($output)) {
     }
 }
 
-debug(get_memory_used());
+debug(sprintf("Memory used (%s) MB (current/peak).", get_memory_used()));
 echo "\n";
 exit;
 
@@ -1427,13 +1966,13 @@ exit;
  * Dump debug data if DEBUG constant is set
  *
  * @param  optional string $string string to output
- * @param  optional mixed $data to dump
+ * @param  mixed $data to dump
  * @return boolean true if string output, false if not
  */
-function debug($string = '', &$data = '')
+function debug($string = '', $data = [])
 {
     if (DEBUG) {
-        echo "[D] $string\n";
+        echo trim('[D ' . get_memory_used() . '] ' . $string) . "\n";
         if (!empty($data)) {
             print_r($data);
         }
@@ -1450,10 +1989,10 @@ function debug($string = '', &$data = '')
  * @param  optional mixed $data to dump
  * @return boolean true if string output, false if not
  */
-function verbose($string, &$data = '')
+function verbose($string, $data = '')
 {
     if (VERBOSE && !empty($string)) {
-        echo "[V] $string\n";
+        echo trim('[V' .((DEBUG) ? ' ' . get_memory_used() : '') . '] ' . $string) . "\n";
         if (!empty($data)) {
             print_r($data);
         }
@@ -1485,7 +2024,15 @@ function get_memory_used()
 function get_commands($requirements = [])
 {
     static $commands = []; // cli command paths
-    if (!empty($commands)) {
+
+    $found = true;
+    foreach ($requirements as $tool => $description) {
+        if (!array_key_exists($tool, $commands)) {
+            $found = false;
+            break;
+        }
+    }
+    if ($found) {
         return $commands;
     }
 
@@ -1515,7 +2062,7 @@ function get_commands($requirements = [])
  * @return mixed array $streams | boolean false if failure
  * @see    https://secure.php.net/manual/en/function.proc-open.php
  */
-function &shell_execute($cmd)
+function shell_execute($cmd)
 {
     $process = proc_open(
         $cmd,
@@ -1550,7 +2097,7 @@ function &shell_execute($cmd)
  * @return mixed string $stdout | Exception if failure
  * @see    shell_execute($cmd)
  */
-function &cmd_execute($cmd, $split = true, $exp = "/\n/")
+function cmd_execute($cmd, $split = true, $exp = "/\n/")
 {
     $result = shell_execute($cmd);
     if (!empty($result['stderr'])) {
@@ -1570,19 +2117,13 @@ function &cmd_execute($cmd, $split = true, $exp = "/\n/")
  * @param  string $dir to search
  * @return array [][basename => target] OR if group set [][id][basename => target]
  */
-function &files_tweets($dir, $group = false)
+function files_tweets($dir, $group = false)
 {
-    // cache results
-    static $results = [];
-    if (!empty($results[$dir][$group])) {
-        return $results[$dir][$group];
-    }
-
     $tfiles = [];
     $files  = files_list($dir);
     foreach ($files as $f => $file) {
         if (stristr($file, '/tweet_files/') !== false) {
-            if (preg_match('/^(?<id>[0-9]+)_.+/', $f, $matches)) {
+            if (preg_match('/^(?<id>[0-9]+)[-][^\.]+\..+/', $f, $matches)) {
                 if ($group) {
                     $tfiles[$matches['id']][$f] = $file;
                 } else {
@@ -1592,7 +2133,6 @@ function &files_tweets($dir, $group = false)
         }
     }
 
-    $results[$dir][$group] = $videos;
     return $tfiles;
 }
 
@@ -1601,14 +2141,19 @@ function &files_tweets($dir, $group = false)
  * Fetch all files in folder
  *
  * @param  string $dir to search
- * @return boolean $sort sort files or not
+ * @param  boolean $use_cache use cached files
+ * @return array $sort sort files or not
  */
-function &files_list($dir, $sort = true)
+function files_list($dir, $sort = true, $use_cache = true)
 {
-    // cache results
-    static $results = [];
-    if (!empty($results[$dir])) {
-        return $results[$dir];
+    static $cache = [];
+
+    // retrieve from cache (if cached) and using cache
+    $key = md5($dir . (int) $sort);
+    if (!empty($use_cache)) {
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
     }
 
     $commands = get_commands();
@@ -1620,10 +2165,11 @@ function &files_list($dir, $sort = true)
     }
 
     unset($files[0]); // first line is blank
+
     // strip hidden meta files
     foreach ($files as $i => $file) {
         unset($files[$i]);
-        if (false !== stristr($file, '/._')) {
+        if (false !== stristr($file, '/._') || 0 === filesize($file)) {
             continue;
         }
         $files[basename($file)] = $file;
@@ -1633,42 +2179,36 @@ function &files_list($dir, $sort = true)
         natcasesort($files);
     }
 
-    $results[$dir] = $files;
-
+    $cache[$key] = $files;
     return $files;
 }
 
 
 /**
- * Fetch all tweet images in dir (named 99999-XXXXXX .png, .jpg, .gif)
+ * Fetch all tweet images in dir (named 99999-XXXXXX .png, .jpg, .jpeg.gif)
  *
  * @param  string $dir to search
  * @return array [][basename => target] OR if group set [][id][basename => target]
  */
-function &files_images($dir, $group = false)
+function files_images($dir, $group = false)
 {
-    // cache results
-    static $results = [];
-    if (!empty($results[$dir][$group])) {
-        return $results[$dir][$group];
-    }
-
     $images = [];
     $files  = files_list($dir);
     foreach ($files as $f => $file) {
-        if (stristr($f, '.jpg') !== false || stristr($f, '.png') !== false || stristr($f,
-                '.gif') !== false) {
-            if (preg_match('/^(?<id>[0-9]+)-.+/', $f, $matches)) {
+        if (stristr($f, '.jp') !== false || stristr($f, '.png') !== false
+            || stristr($f, '.gif') !== false) {
+            if (preg_match('/^(?<id>[0-9]+)[-][^\.]+\..+/', $f, $matches)) {
                 if ($group) {
                     $images[$matches['id']][$f] = $file;
-                } else {
-                    $images[$f] = $file;
+                    continue;
                 }
+            }
+            if (0 !== filesize($file)) {
+                $images[$f] = $file;
             }
         }
     }
 
-    $results[$dir][$group] = $videos;
     return $images;
 }
 
@@ -1679,29 +2219,24 @@ function &files_images($dir, $group = false)
  * @param  string $dir to search
  * @return array [][basename => target] OR if group set [][id][basename => target]
  */
-function &files_videos($dir, $group)
+function files_videos($dir, $group = false)
 {
-    // cache results
-    static $results = [];
-    if (!empty($results[$dir][$group])) {
-        return $results[$dir][$group];
-    }
-
     $videos = [];
     $files  = files_list($dir);
     foreach ($files as $f => $file) {
         if (stristr($f, '.mp4') !== false) {
-            if (preg_match('/^(?<id>[0-9]+)-.+/', $f, $matches)) {
+            if (preg_match('/^(?<id>[0-9]+)[-][^\.]+\..+/', $f, $matches)) {
                 if ($group) {
                     $videos[$matches['id']][$f] = $file;
-                } else {
-                    $videos[$f] = $file;
+                    continue;
                 }
+            }
+            if (0 !== filesize($file)) {
+                $videos[$f] = $file;
             }
         }
     }
 
-    $results[$dir][$group] = $videos;
     return $videos;
 }
 
@@ -1712,23 +2247,18 @@ function &files_videos($dir, $group)
  * @param  string $dir to search
  * @return array [][basename => target]
  */
-function &files_js($dir)
+function files_js($dir)
 {
-    // cache results
-    static $results = [];
-    if (!empty($results[$dir])) {
-        return $results[$dir];
-    }
-
     $js    = [];
     $files = files_list($dir);
     foreach ($files as $f => $file) {
         if (stristr($f, '.js') !== false || stristr($f, '.json') !== false) {
-            $js[$f] = $file;
+            if (0 !== filesize($file)) {
+                $js[$f] = $file;
+            }
         }
     }
 
-    $results[$dir] = $js;
     return $js;
 }
 
@@ -1738,7 +2268,7 @@ function &files_js($dir)
  *
  * @param  string $dir to search default filename 'tweet.js' for
  * @param  string $filename the filename containing the tweets
- * @return array $data
+ * @return integer $data
  */
 function tweets_count($dir, $filename = 'tweet.js')
 {
@@ -1752,7 +2282,7 @@ function tweets_count($dir, $filename = 'tweet.js')
  * @param  array $keys array keys to explicitly remove regardless
  * @return array the trimmed down array
  */
-function &array_clear(&$array, $keys = [])
+function array_clear($array, $keys = [])
 {
     foreach ($array as $key => $value) {
         if (is_array($value)) {
@@ -1784,7 +2314,7 @@ function &array_clear(&$array, $keys = [])
  * @param string $from convert from encoding
  * @return array|string
  */
-function &to_charset(&$data, $to = 'UTF-8', $from = 'auto')
+function to_charset($data, $to = 'UTF-8', $from = 'auto')
 {
     if (is_numeric($data)) {
         if (is_float($data)) {
@@ -1810,10 +2340,10 @@ function &to_charset(&$data, $to = 'UTF-8', $from = 'auto')
 /**
  * Load a json file and return a php array of the content
  *
- * @param  string $filename the json filename
+ * @param  string $file the json filename
  * @return string|array error string or data array
  */
-function &json_load($file)
+function json_load($file)
 {
     $data = [];
     if (file_exists($file)) {
@@ -1840,14 +2370,14 @@ function &json_load($file)
  * @param  string $filename the filename containing the tweets
  * @return mixed string error or array $data
  */
-function &json_load_twitter($dir, $filename)
+function json_load_twitter($dir, $filename)
 {
     $files = files_js($dir);
     $data  = to_charset(file_get_contents($files[$filename]));
 
     // the twitter export file tweet.js begins with:
     // window.YTD.tweet.part0 = [ {
-    if ('window' == substr($data, 0, 6)) {
+    if ('window' == substr($data, 0, 6) || 'Grailbird' == substr($data, 0, 9)) {
         $data = substr($data, strpos($data, '['));
     }
 
@@ -1865,13 +2395,13 @@ function &json_load_twitter($dir, $filename)
 /**
  * Save data array to a json
  *
- * @param  string $filename the json filename
+ * @param  string $file the json filename
  * @param  array $data data to save
  * @param  string optional $prepend string to prepend in the file
  * @param  string optional $append string to append to the file
  * @return boolean true|string TRUE if success or string error message
  */
-function json_save($file, &$data, $prepend = '', $append = '')
+function json_save($file, $data, $prepend = '', $append = '')
 {
     if (TEST) {
         return true;
@@ -1898,11 +2428,14 @@ function json_save($file, &$data, $prepend = '', $append = '')
 /**
  * Load a serialized php data file and return it
  *
- * @param  string $filename the json filename
+ * @param  string $file the json filename
  * @return array $data
  */
-function &serialize_load($file)
+function serialize_load($file)
 {
+    if (0 === filesize($file)) {
+        return 'File is empty.';
+    }
     if (file_exists($file)) {
         $data = unserialize(file_get_contents($file));
     }
@@ -1913,11 +2446,11 @@ function &serialize_load($file)
 /**
  * Save data array to a php serialized data
  *
- * @param  string $filename the json filename
+ * @param  string $file the json filename
  * @param  array $data data to save
  * @return boolean result
  */
-function serialize_save($file, &$data)
+function serialize_save($file, $data)
 {
     if (TEST) {
         return true;
@@ -1939,6 +2472,10 @@ function serialize_save($file, &$data)
  */
 function url_resolve($url, $options = [])
 {
+    if (OFFLINE) {
+        return false;
+    }
+
     $commands = get_commands();
     $wget     = $commands['wget'];
     $curl     = $commands['curl'];
@@ -1985,7 +2522,7 @@ function url_resolve($url, $options = [])
     // same URl, loop!
     if ($target_url == $url) {
         $cmd_wget_spider = sprintf(
-            "$wget -t 2 -T 5 -v --spider %s", escapeshellarg($url)
+            "$wget --user-agent='' -t 2 -T 5 -v --spider %s", escapeshellarg($url)
         );
         // try wget instead
         $output          = shell_execute($cmd_wget_spider);
@@ -2033,3 +2570,53 @@ function url_resolve($url, $options = [])
     return $return;
 }
 
+
+/**
+ * Download a file URL and save as a given filename using 'wget'
+ *
+ * @param string $url the url to fetch the file from
+ * @param string $path the full path to the filename to save the download as
+ * @return boolean|string true if success, false or string $stderr
+ */
+function url_download($url, $path)
+{
+    if (OFFLINE) {
+        return "Can't download '$url' to '$path' because in OFFLINE mode.";
+    }
+
+    $commands = get_commands();
+    $wget     = $commands['wget'];
+    $cmd = "$wget --user-agent='' --verbose -t 3 -T 7 -nc %s -O %s"; // wget args to sprintf to fetch a url and save as a file
+
+    // remove if zero-byte file because wget will just skip otherwise
+    if (file_exists($path) && 0 === filesize($path)) {
+        unlink($path);
+    }
+
+    // fetch the file
+    $download = sprintf($cmd, escapeshellarg($url), escapeshellarg($path));
+    if (VERBOSE) {
+        debug("Downloading: $download");
+    }
+    $results = shell_execute($download);
+
+    // failed
+    if (!file_exists($path)) {
+        return false;
+    }
+
+    // remove if zero-byte file
+    if (0 === filesize($path)) {
+        unlink($path);
+        return false;
+    }
+
+    // success text
+    if (false !== stristr($results['stderr'], 'already there; not retrieving') ||
+        false !== stristr($results['stderr'], 'saved')) {
+        return true;
+    }
+
+    // return std err if not success
+    return $results['stderr'];
+}

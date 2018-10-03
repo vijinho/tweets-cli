@@ -699,8 +699,6 @@ if ($do['grailbird-import'] && !empty($grailbird_files) && is_array($grailbird_f
             // unset because we will be re-writing the tweet index and the number
             // is going to be using the tweet id which is a much higher value
             unset($tweets[$t]);
-
-            // store $tweet[id] into $tweets array
             $tweets[$tweet['id']] = $tweet;
         }
     }
@@ -1059,8 +1057,6 @@ if (!empty($tweets) && is_array($tweets)) {
 
         // perform search/replace on 'text'
         $tweet['text'] = trim(str_replace($search, $replace, $tweet['text']));
-
-        // store $tweet[id] into $tweets array
         $tweets[$tweet_id] = $tweet;
     }
 }
@@ -1224,11 +1220,6 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
         // perform the search/replace on urls in 'text'
         $tweet['text'] = trim(str_replace($search, $replace, $tweet['text']));
 
-        // a change occurred, url was stripped
-        if ($full_text !== $tweet['text']) {
-            //debug(sprintf("Modified:\n\t%s\n\t%s", $full_text, $tweet['text']));
-        }
-
         $tweets[$tweet_id] = $tweet;
     }
 
@@ -1289,7 +1280,6 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
                 $media_files = [$media_files];
             }
             // check tweet exists, if so, merge files into files keys
-            //debug(sprintf("Local content '%s' found for tweet id: %d", $type, $tweets[$id]['id']));
             if (empty($tweets[$id][$type])) {
                 $tweets[$id][$type] = [];
             }
@@ -1304,26 +1294,27 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
 
 if ($do['keys-filter']) {
 
-    $only_keys = '';
-
+    $only_keys = [];
     if (!empty($options['s'])) {
         $only_keys = $options['s'];
     } elseif (!empty($options['keys-filter'])) {
         $only_keys = $options['keys-filter'];
     }
 
-    $only_keys = preg_split("/,/", $only_keys);
+    if (!empty($only_keys)) {
+        $only_keys = preg_split("/,/", $only_keys);
 
-    verbose('Filtering tweets to show only keys…', $only_keys);
+        verbose('Filtering tweets to show only keys…', $only_keys);
 
-    if (!empty($only_keys) && !empy($tweets) && is_array($tweets)) {
-        foreach ($tweets as $tweet_id => $tweet) {
-            foreach ($tweet as $k => $v) {
-                if (!in_array($k, $only_keys)) {
-                    unset($tweet[$k]);
+        if (!empty($only_keys) && !empy($tweets) && is_array($tweets)) {
+            foreach ($tweets as $tweet_id => $tweet) {
+                foreach ($tweet as $k => $v) {
+                    if (!in_array($k, $only_keys)) {
+                        unset($tweet[$k]);
+                    }
                 }
+                $tweets[$tweet_id] = $tweet;
             }
-            $tweets[$tweet_id] = $tweet;
         }
     }
 }
@@ -1333,7 +1324,7 @@ if ($do['keys-filter']) {
 // stripping out of the attributes/keys if they were specified
 // on the command-line
 
-$remove_keys = '';
+$remove_keys = [];
 
 if (!empty($options['k'])) {
     $remove_keys = $options['k'];
@@ -1344,10 +1335,10 @@ if (!empty($options['k'])) {
 if (!empty($remove_keys)) {
     $remove_keys = preg_split("/,/", $remove_keys);
     verbose('Removing keys from tweets…', $remove_keys);
-    if (!empty($remove_keys)) {
+    if (!empty($remove_keys) && is_array($remove_keys)) {
         $tweets = array_clear($tweets, $remove_keys);
     }
-} else if (!$do['grailbird']) {
+} else if (!$do['grailbird'] && !empty($tweets) && is_array($tweets)) {
     debug('Removing empty values from tweets…');
     $tweets = array_clear($tweets);
 }
@@ -1368,7 +1359,6 @@ if ($do['urls-resolve'] && !OFFLINE) {
         $parts = parse_url($url);
         if (false == $parts || count($parts) <= 1 || (array_key_exists('host',
                 $parts) && in_array(strtolower($parts['host']), $hosts_expired))) {
-            //debug(sprintf("Skipping expired %s for url %s", $host, $url));
             $urls[$url] = 0;
             continue;
         }
@@ -1947,11 +1937,13 @@ if (!empty($output)) {
 
     switch (OUTPUT_FORMAT) {
         case 'txt':
-            foreach ($output as $o) {
-                if (is_array($o) || is_object($o)) {
-                    print_r($o);
-                } else {
-                    echo "$o\n";
+            if (!empty($output) && is_array($output)) {
+                foreach ($output as $o) {
+                    if (is_array($o) || is_object($o)) {
+                        print_r($o);
+                    } else {
+                        echo "$o\n";
+                    }
                 }
             }
             break;
@@ -2086,7 +2078,7 @@ function get_commands($requirements = [])
  * stdin, stdout, stderr
  *
  * @param  string $cmd command to execute
- * @return mixed array $streams | boolean false if failure
+ * @return array|false array $streams | boolean false if failure
  * @see    https://secure.php.net/manual/en/function.proc-open.php
  */
 function shell_execute($cmd)
@@ -2275,17 +2267,17 @@ function files_videos($dir, $group = false)
  */
 function files_js($dir)
 {
-    $js    = [];
+    $js_files    = [];
     $files = files_list($dir);
     foreach ($files as $f => $file) {
         if (stristr($f, '.js') !== false || stristr($f, '.json') !== false) {
             if (0 !== filesize($file)) {
-                $js[$f] = $file;
+                $js_files[$f] = $file;
             }
         }
     }
 
-    return $js;
+    return $js_files;
 }
 
 
@@ -2336,11 +2328,11 @@ function array_clear($array, $keys = [])
  * Encode array character encoding recursively
  *
  * @param mixed $data
- * @param string $to convert to encoding
- * @param string $from convert from encoding
- * @return array|string
+ * @param string $to_charset convert to encoding
+ * @param string $from_charset convert from encoding
+ * @return mixed
  */
-function to_charset($data, $to = 'UTF-8', $from = 'auto')
+function to_charset($data, $to_charset = 'UTF-8', $from_charset = 'auto')
 {
     if (is_numeric($data)) {
         if (is_float($data)) {
@@ -2349,14 +2341,14 @@ function to_charset($data, $to = 'UTF-8', $from = 'auto')
             return (int) $data;
         }
     } else if (is_string($data)) {
-        return mb_convert_encoding($data, $to, $from);
+        return mb_convert_encoding($data, $to_charset, $from_charset);
     } else if (is_array($data)) {
         foreach ($data as $key => $value) {
-            $data[$key] = to_charset($value, $to, $from);
+            $data[$key] = to_charset($value, $to_charset, $from_charset);
         }
     } else if (is_object($data)) {
         foreach ($data as $key => $value) {
-            $data->$key = to_charset($value, $to, $from);
+            $data->$key = to_charset($value, $to_charset, $from_charset);
         }
     }
     return $data;
@@ -2473,7 +2465,7 @@ function serialize_load($file)
  * Save data array to a php serialized data
  *
  * @param  string $file the json filename
- * @param  array $data data to save
+ * @param  mixed $data data to save
  * @return boolean result
  */
 function serialize_save($file, $data)

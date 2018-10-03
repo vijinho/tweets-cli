@@ -646,6 +646,9 @@ if ($do['dupes']) {
 //-----------------------------------------------------------------------------
 // return total number of tweets
 
+$tweets = [];
+$tweets_count = 0;
+
 if ($do['tweets-count']) {
     verbose('Counting tweets…');
 
@@ -1062,6 +1065,7 @@ if ($do['local']) {
 
     // detect the locally saved twitter media files
     $to_delete = []; // files to delete
+    $missing_media = []; // missing local media files, [filename => source url]
 
     foreach ($tweets as $tweet_id => $tweet) {
 

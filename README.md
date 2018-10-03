@@ -55,7 +55,7 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
         -i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'
         -a,  --tweets-all             Get all tweets (further operations below will depend on this)
              --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php
-             --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php
+             --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php 
              --no-retweets            Drop re-tweets (RT's)
              --no-mentions            Drop tweets starting with mentions
              --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)

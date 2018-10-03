@@ -1085,14 +1085,13 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
 
         // find the files for the tweet
         if (!empty($tweet['entities']['media'])) {
-            $extended_entities = empty($tweet['extended_entities']['media']) ? [
-] : $tweet['extended_entities']['media'];
+            $extended_entities = empty($tweet['extended_entities']['media']) ? [] : $tweet['extended_entities']['media'];
             foreach ([$tweet['entities']['media'], $extended_entities] as
                     $entities) {
                 if (empty($entities)) {
                     continue;
                 }
-                foreach ($tweet['entities']['media'] as $entity) {
+                foreach ($entities as $entity) {
                     // construct the local filename, then later check it exists
                     $media_file   = basename($entity['media_url_https']);
                     $media_file2  = $tweet_id . '-' . $media_file;
@@ -1656,53 +1655,67 @@ if ($do['urls-resolve'] && !empty($tweets) && is_array($tweets)) {
         if ($do['local']) {
             $found_entities = [];
 
-            if (array_key_exists('entities', $tweet) && array_key_exists('media',
-                    $tweet['entities'])) {
-                foreach ($tweet['entities']['media'] as $e => $entity) {
-                    $media_url = basename($entity['media_url_https']);
-                    foreach ([
-                    $media_url, $tweet_id . '-' . $media_url
-                    ] as $key) {
-                        if (!array_key_exists($key, $files)) {
-                            continue;
-                        }
+            $tweet['entities']['media'] = empty($tweet['entities']['media']) ? [] : $tweet['entities']['media'];
+            $tweet['extended_entities']['media'] = empty($tweet['extended_entities']['media']) ? [] : $tweet['extended_entities']['media'];
 
-                        $i                              = strlen($tweet['text']); // will append to tweet after!
-                        $path                           = $files[$key];
-                        $url                            = 'file://' . $path;
-                        $entity                         = array_replace_recursive($entity,
-                            [
-                            'url'             => '',
-                            'expanded_url'    => '',
-                            'media_url_https' => $url,
-                            'media_url_https' => $url,
-                            'display_url'     => '',
-                            'indices'         => [$i, $i + 1],
-                        ]);
-                        $tweet['entities']['media'][$e] = $entity;
-                        $found_entities[$key]           = $entity;
+            foreach ([$tweet['entities']['media'], $tweet['extended_entities']['media']] as $index => $entities) {
+
+                if (empty($entities)) {
+                    continue;
+                }
+
+                foreach ($entities as $e => $entity) {
+
+                    // construct the local filename, then later check it exists
+                    $media_file   = basename($entity['media_url_https']);
+                    $media_file2  = $tweet_id . '-' . $media_file;
+                    $search_files = [
+                        $media_file  => $media_file,
+                        $media_file2 => $media_file2
+                    ];
+                    if (array_key_exists('source_status_id', $entity)) {
+                        $media_file3                = $entity['source_status_id'] . '-' . $media_file;
+                        $search_files[$media_file3] = $media_file3;
                     }
-                }
 
-                // append this to the end of the tweet if entities found
-                if (!empty($found_entities)) {
-                    $tweet['text'] .= "\n";
-                }
-            }
-
-            // update extended_entities with the above
-            if (array_key_exists('extended_entities', $tweet) && array_key_exists('media',
-                    $tweet['extended_entities'])) {
-                foreach ($tweet['extended_entities']['media'] as $e => $entity) {
-                    $media_url = basename($entity['media_url_https']);
-                    foreach ([
-                    $media_url, $tweet_id . '-' . $media_url
-                    ] as $key) {
-                        if (array_key_exists($key, $found_entities)) {
-                            $entity                                  = array_replace_recursive($entity,
-                                $found_entities[$key]);
-                            $tweet['extended_entities']['media'][$e] = $entity;
+                    // check if the filename is just {id}.{ext} instead of {tweet_id}-{id}.{ext}
+                    $found = false; // found local file
+                    foreach ($search_files as $file) {
+                        if (array_key_exists($file, $images)) {
+                            $path = $images[$file];
+                            $found                  = true;
+                            break;
+                        } else if (array_key_exists($file, $videos)) {
+                            $path = $videos[$file];
+                            $found                  = true;
+                            break;
+                        } else if (array_key_exists($file, $files)) {
+                            $path = $files[$file];
+                            $found                 = true;
+                            break;
                         }
+                    }
+
+                    if (empty($found)) {
+                        continue;
+                    }
+
+                    $i                              = strlen($tweet['text']); // will append to tweet after!
+                    $url                            = 'file://' . $path;
+                    $entity                         = array_replace_recursive($entity,
+                        [
+                        'url'             => '',
+                        'expanded_url'    => '',
+                        'media_url' => $url,
+                        'media_url_https' => $url,
+                        'display_url'     => '',
+                        'indices'         => [$i, $i + 1],
+                    ]);
+
+                    if (0 === $index) {
+                        $tweet['entities']['media'][$e] = $entity;
+                    } else {
+                        $tweet['extended_entities']['media'][$e] = $entity;
                     }
                 }
             }

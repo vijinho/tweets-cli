@@ -184,7 +184,6 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\t-a,  --tweets-all             Get all tweets (further operations below will depend on this)",
             "\t     --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php",
             "\t     --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php ",
-            "\t     --export-retweets        Export re-tweets (RT's) including 'reteeted_status' into a combined tweets file",
             "\t     --no-retweets            Drop re-tweets (RT's)",
             "\t     --no-mentions            Drop tweets starting with mentions",
             "\t     --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)",

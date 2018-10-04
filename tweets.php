@@ -16,9 +16,14 @@ ini_set('mbstring.func_overload', 6);
 //-----------------------------------------------------------------------------
 // required commands check
 $requirements = [
-    'find' => 'System command: find',
-    'curl' => 'https://curl.haxx.se',
-    'wget' => 'https://www.gnu.org/software/wget/'
+    'find'    => 'cli command: find',
+    'grep'    => 'cli command: grep',
+    'cut'     => 'cli command: cut',
+    'xargs'   => 'cli command: xargs',
+    'gunzip'  => 'cli command: gunzip',
+    'convert' => 'tool: convert - https://imagemagick.org/script/convert.php',
+    'curl'    => 'tool: curl - https://curl.haxx.se',
+    'wget'    => 'tool: wget - https://www.gnu.org/software/wget/',
 ];
 
 $commands = get_commands($requirements);
@@ -286,6 +291,7 @@ debug("online_sleep: " . $online_sleep);
 $tweets        = [];
 $tweets_count  = 0;
 $missing_media = []; // missing local media files, [filename => source url]
+
 //-----------------------------------------------------------------------------
 // set the script output format to one of (json, php, text)
 
@@ -1247,34 +1253,6 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
         $tweets[$tweet_id] = $tweet;
     }
 
-    // show missing media files if --missing-media specified, and finish
-    if ($do['list-missing-media']) {
-        $output = $missing_media;
-        goto output;
-    }
-
-    if ($do['download-missing-media'] || $do['download-profile-images']) {
-        if (!empty($missing_media)) {
-            verbose(sprintf("Downloading:\n\t%s\n\t%s", $url, $path));
-            // download each missing file
-            $i = 0;
-            foreach ($missing_media as $file => $url) {
-                $result = url_download($url, $file);
-                if (true !== $result) {
-                    $errors[] = sprintf("Error downloading %s to %s: %s", $url,
-                        $file, $result);
-                    continue;
-                }
-                $i++;
-                sleep(0.2);
-            }
-            verbose("Finished fetching missing files.");
-            $output[] = sprintf("Downloaded %d/%d missing media files.", $i,
-                count($missing_media));
-        }
-        goto output;
-    }
-
     // only delete if the command line switch was specified
     if (count($to_delete)) {
         foreach ($to_delete as $path) {
@@ -1293,13 +1271,10 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
     $content['images'] = files_images($dir, true);
 
     foreach ($content as $type => $results) {
-
         foreach ($results as $id => $media_files) {
-
             if (!is_numeric($id) || !array_key_exists($id, $tweets)) {
                 continue;
             }
-
             if (!is_array($media_files)) {
                 $media_files = [$media_files];
             }
@@ -1545,10 +1520,9 @@ if ($do['urls-resolve']) {
     }
 }
 
-// resolve urls
-if ($do['urls-resolve'] && !empty($tweets) && is_array($tweets)) {
+if (!empty($tweets) && is_array($tweets)) {
 
-    verbose("Resolving URLs and re-building media entities…");
+    verbose("Re-building media entities…");
 
     foreach ($tweets as $tweet_id => $tweet) {
 
@@ -1736,11 +1710,59 @@ if ($do['urls-resolve'] && !empty($tweets) && is_array($tweets)) {
             }
         }
         $tweet['entities']['urls']   = $tweet_urls;
-        $tweet['display_text_range'] = [0, strlen($tweet['text'])];
 
+
+        // find twitpic, remove if in files
+        $search = $replace = [];
+        $text = $tweet['text'];
+
+        // get the other image urls
+        if ($do['local'] && array_key_exists('images', $tweet)) {
+            if (preg_match_all('/(?P<url>http[s]?:\/\/[^\s]+[^\.\s]+)/i', $text, $matches)) {
+                foreach ($matches['url'] as $url) {
+                    $parts = parse_url($url);
+                    if (empty($parts) || !is_array($parts) || !array_key_exists('host', $parts)) {
+                        continue;
+                    }
+                    $found = false;
+                    $image_id = null;
+                    switch ($parts['host']) {
+                        case 'twitpic.com';
+                            $image_id = $tweet['id'] . '-' . stristr($url, substr($parts['path'], 1));
+                            foreach (['jpg', 'png', 'jpeg', 'gif'] as $ext) {
+                                $image_file = $image_id . '.' . $ext;
+                                if (array_key_exists( $image_file, $tweet['images'])) {
+                                    $search[] = $url;
+                                    $replace[] = '';
+                                    $found = true;
+                                    break;
+                                }
+                            }
+                            break;
+                        default;
+                            continue;
+                            break;
+                    }
+
+                    if ($do['list-missing-media'] || $do['download-missing-media']) {
+                        if (false === $found && null !== $image_id) {
+                            debug("Not found: \n$url\n$image_id");
+                            $path = $dir . '/' . 'tweet_media/' . $image_id . '.jpg';
+                            $missing_media[$path] = $url;
+                        }
+                    }
+                }
+            }
+        }
+
+        // perform the search/replace on urls in 'text'
+        $text = trim(str_replace($search, $replace, $text));
+        $tweet['display_text_range'] = [0, strlen($text)];
+        $tweet['text'] = $text;
         ksort($tweet);
         $tweets[$tweet_id] = $tweet;
     }
+
     ksort($tweets);
 
     // save updated $urls
@@ -1751,6 +1773,38 @@ if ($do['urls-resolve'] && !empty($tweets) && is_array($tweets)) {
         $errors[] = "\nJSON Error: $save\n";
         goto errors;
     }
+}
+
+
+//-----------------------------------------------------------------------------
+// download missing media files
+
+// show missing media files if --missing-media specified, and finish
+if ($do['list-missing-media']) {
+    $output = $missing_media;
+    goto output;
+}
+
+if ($do['download-missing-media'] || $do['download-profile-images']) {
+    if (!empty($missing_media)) {
+        verbose(sprintf("Downloading:\n\t%s\n\t%s", $url, $path));
+        // download each missing file
+        $i = 0;
+        foreach ($missing_media as $file => $url) {
+            $result = url_download($url, $file);
+            if (true !== $result) {
+                $errors[] = sprintf("Error downloading %s to %s: %s", $url,
+                    $file, $result);
+                continue;
+            }
+            $i++;
+            sleep(0.2);
+        }
+        verbose("Finished fetching missing files.");
+        $output[] = sprintf("Downloaded %d/%d missing media files.", $i,
+            count($missing_media));
+    }
+    goto output;
 }
 
 //-----------------------------------------------------------------------------
@@ -2723,9 +2777,16 @@ function url_download($url, $path)
         return "Can't download '$url' to '$path' because in OFFLINE mode.";
     }
 
+    // check that it's a URL
+    $parts = parse_url($url);
+    if (empty($parts) || !is_array($parts) || !array_key_exists('path', $parts)) {
+        return false;
+    }
+
     $commands = get_commands();
     $wget     = $commands['wget'];
     $cmd      = "$wget --user-agent='' --verbose -t 3 -T 7 -nc %s -O %s"; // wget args to sprintf to fetch a url and save as a file
+
     // remove if zero-byte file because wget will just skip otherwise
     if (file_exists($path) && 0 === filesize($path)) {
         unlink($path);
@@ -2759,3 +2820,72 @@ function url_download($url, $path)
     return $results['stderr'];
 }
 
+/**
+ * Download an image URL from twitpic.com and save as a given filename using 'wget'
+ *
+ * @param string $url the url to fetch the file from
+ * @param string $path the full path to the filename to save the download as
+ * @param string $mime_type mime_type to check downloaded image for
+ * @return boolean|string true if success, false or string $stderr
+ */
+function twitpic_download($url, $path, $mime_type = 'image/jpeg')
+{
+    if (OFFLINE) {
+        return "Can't download '$url' to '$path' because in OFFLINE mode.";
+    }
+
+    $commands = get_commands();
+    $wget     = $commands['wget'];
+    $convert  = $commands['convert'];
+    $gunzip   = $commands['gunzip'];
+    $grep     = $commands['grep'];
+    $cut      = $commands['cut'];
+    $xargs    = $commands['xargs'];
+
+    // fetch html from twitpic and grep the image file url to STDOUT
+    $cmd = "$wget --user-agent='' --verbose -t 3 -T 7 -O- %s | $gunzip -c | $grep 'img src='  | $cut -d '\"' -f 2 | $xargs";
+
+    // wget args to sprintf to fetch a url and save as a file
+    // remove if zero-byte file because wget will just skip otherwise
+    if (file_exists($path) && 0 === filesize($path)) {
+        unlink($path);
+    }
+
+    // fetch the file
+    $fetch_url = sprintf($cmd, escapeshellarg($url));
+    if (VERBOSE) {
+        debug("Fetching URL from twitpic: $fetch_url");
+    }
+    $results = shell_execute($fetch_url);
+
+    // check the STDOUT is valid
+    if (empty($results['stdout'])) {
+        return false;
+    }
+    $url = trim($results['stdout']);
+    debug($url);
+
+    // download directly
+    $results = url_download($url, $path);
+    if (true !== $results) {
+        return $results;
+    }
+
+    // at this point we have the file, finally
+    // convert if wrong file type for extension
+    $type = mime_content_type($path);
+    if ($mime_type !== $type) {
+        debug("Convert-ing file from '%s' to '%'", $type, $mime_type);
+        // as long as the extension is correct, convert will convert incorrect image format by extension
+        // i.e. a PNG with extension JPG will be converted to JPG by doing 'convert file.jpg file.jpg'
+        $file_convert = sprintf(
+            "%s %s %s", $convert,
+            escapeshellarg($path),
+            escapeshellarg($path)
+        );
+        $results = shell_execute($fetch_url);
+        debug("Results:", $results);
+    }
+
+    return true;
+}

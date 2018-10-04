@@ -776,117 +776,6 @@ if ($do['grailbird-import'] && !empty($grailbird_files) && is_array($grailbird_f
 
 
 //-----------------------------------------------------------------------------
-// list all users
-
-verbose("Getting all users mentioned in tweets…");
-
-$users = json_load($users_filename);
-if (!is_string($users)) {
-    $users_count = count($users);
-    verbose(sprintf("Loaded %d previously saved users from '%s'", $users_count,
-            $users_filename));
-} else {
-    $users       = [];
-    $users_count = 0;
-}
-
-if (!empty($tweets) && is_array($tweets)) {
-    foreach ($tweets as $tweet) {
-
-        // get user from retweeted_status/user_mentions, if exists, add/replace
-        // NOTE: this only exists in the old/standard twitter backup files, not in the huge tweet.js file
-        // if using therefore with --grailbird-import it will get executed
-        if (array_key_exists('retweeted_status', $tweet)) {
-            $user        = $tweet['retweeted_status']['user'];
-            $screen_name = $user['screen_name'];
-            if (!array_key_exists($screen_name, $users)) {
-                debug(sprintf("Adding entry for user %d: @%s (%s)", $user['id'],
-                        $screen_name, $user['name']));
-                $users[$user['screen_name']] = $user;
-            } else {
-                $users[$user['screen_name']] = array_replace_recursive($users[$screen_name],
-                    $user);
-            }
-        }
-
-        // get users from entities/user_mentions
-        // this should only add new values, not replace any, because only extra data is in retweeted_status/user entry
-        if (!empty($tweet['entities']) && array_key_exists('user_mentions',
-                $tweet['entities'])) {
-            $user_mentions = $tweet['entities']['user_mentions'];
-            foreach ($user_mentions as $i => $user) {
-                if (array_key_exists($user['screen_name'], $users)) {
-                    continue;
-                }
-                unset($user['indices']);
-                debug(sprintf("Adding entry for user %d: @%s (%s)", $user['id'],
-                        $user['screen_name'], $user['name']));
-                // deleted users have id -1
-                $users[$user['screen_name']] = $user;
-            }
-        }
-    }
-}
-
-if (count($users) > $users_count) {
-    verbose(sprintf("New users added: %d. Total users: %d",
-            count($users) - $users_count, count($users)));
-    $users_count = count($users);
-}
-ksort($users);
-
-$profile_images = [];
-// adds 'profile_image_file ' to user for where the local file should be stored
-foreach ($users as $screen_name => $user) {
-    if (empty($user) || !is_array($user) || !array_key_exists('profile_image_url_https',
-            $user)) {
-        continue;
-    }
-
-    // create the 'profile_media' filename
-    $url                                       = $user['profile_image_url_https'];
-    $filename                                  = $dir . '/profile_media/' . $user['id'] . '-' . str_replace('_normal',
-            '', basename($url));
-    $users[$screen_name]['profile_image_file'] = $filename; // this will be the local filename
-    // skip if the file exists (your own user should be here!)
-    if (file_exists($filename)) {
-        continue;
-    }
-
-    if ($do['list-profile-images']) {
-        $profile_images[$filename] = $url;
-    } else if ($do['download-profile-images']) {
-        $missing_media[$filename] = $url;
-    }
-}
-
-// go to end and write file if --list-users, or continue processing after
-if ($do['list-users']) {
-    $output = $users;
-    goto output;
-}
-
-debug("Saving: $users_filename");
-$save = json_save($users_filename, $users);
-if (true !== $save) {
-    $errors[] = "\nFailed encoding JSON output file: $users_filename\n";
-    $errors[] = "\nJSON Error: $save\n";
-    goto errors;
-}
-
-// finish if listing profile images
-if ($do['list-profile-images']) {
-    ksort($profile_images);
-    $output = $profile_images;
-    goto output;
-}
-
-// if not processing all tweets, lose the tweets
-if (!$do['tweets-all']) {
-    $tweets = [];
-}
-
-//-----------------------------------------------------------------------------
 // load in (if previously saved) list of resolved urls => target
 
 $file_urls = $dir . '/urls.json';
@@ -956,6 +845,21 @@ if (DEBUG && !empty($urls)) {
 }
 
 //-----------------------------------------------------------------------------
+// list all users
+
+verbose("Getting all users mentioned in tweets…");
+
+$users = json_load($users_filename);
+if (!is_string($users)) {
+    $users_count = count($users);
+    verbose(sprintf("Loaded %d previously saved users from '%s'", $users_count,
+            $users_filename));
+} else {
+    $users       = [];
+    $users_count = 0;
+}
+
+//-----------------------------------------------------------------------------
 // filter tweets on the keys specified on the  command-line
 
 if ($do['keys-required']) {
@@ -977,13 +881,6 @@ if (!empty($tweets) && is_array($tweets)) {
     verbose("Post-processing tweets…");
 
     foreach ($tweets as $tweet_id => $tweet) {
-
-        // unset because we will be re-writing the tweet index and the number
-        // is going to be using the tweet id which is a much higher value
-        // already done this if we imported grailbird files
-        if (!$do['grailbird-import']) {
-            unset($tweets[$t]);
-        }
 
         // must contain all the keys to be included
         if ($do['keys-required'] && !empty($required_keys) && is_array($required_keys)
@@ -1125,11 +1022,104 @@ if (!empty($tweets) && is_array($tweets)) {
 
         // perform search/replace on 'text'
         $tweet['text']     = trim(str_replace($search, $replace, $tweet['text']));
+
+        // update users array
+
+        // get user from retweeted_status/user_mentions, if exists, add/replace
+        // NOTE: this only exists in the old/standard twitter backup files, not in the huge tweet.js file
+        // if using therefore with --grailbird-import it will get executed
+        if (array_key_exists('retweeted_status', $tweet)) {
+            $user        = $tweet['retweeted_status']['user'];
+            $screen_name = $user['screen_name'];
+            if (!array_key_exists($screen_name, $users)) {
+                debug(sprintf("Adding entry for user %d: @%s (%s)", $user['id'],
+                        $screen_name, $user['name']));
+                $users[$user['screen_name']] = $user;
+            } else {
+                $users[$user['screen_name']] = array_replace_recursive($users[$screen_name],
+                    $user);
+            }
+        }
+
+        // get users from entities/user_mentions
+        // this should only add new values, not replace any, because only extra data is in retweeted_status/user entry
+        if (!empty($tweet['entities']) && array_key_exists('user_mentions',
+                $tweet['entities'])) {
+            $user_mentions = $tweet['entities']['user_mentions'];
+            foreach ($user_mentions as $i => $user) {
+                if (array_key_exists($user['screen_name'], $users)) {
+                    continue;
+                }
+                unset($user['indices']);
+                debug(sprintf("Adding entry for user %d: @%s (%s)", $user['id'],
+                        $user['screen_name'], $user['name']));
+                // deleted users have id -1
+                $users[$user['screen_name']] = $user;
+            }
+        }
+
         $tweets[$tweet_id] = $tweet;
     }
 }
-verbose(sprintf("Tweets to be processed: %d", $tweets_count));
-exit;
+
+verbose(sprintf("Tweets available for further processing: %d", $tweets_count));
+
+//-----------------------------------------------------------------------------
+// update users profile images
+
+if (count($users) > $users_count) {
+    verbose(sprintf("New users added: %d. Total users: %d",
+            count($users) - $users_count, count($users)));
+    $users_count = count($users);
+}
+ksort($users);
+
+$profile_images = [];
+// adds 'profile_image_file ' to user for where the local file should be stored
+foreach ($users as $screen_name => $user) {
+    if (empty($user) || !is_array($user) || !array_key_exists('profile_image_url_https',
+            $user)) {
+        continue;
+    }
+
+    // create the 'profile_media' filename
+    $url                                       = $user['profile_image_url_https'];
+    $filename                                  = $dir . '/profile_media/' . $user['id'] . '-' . str_replace('_normal',
+            '', basename($url));
+    $users[$screen_name]['profile_image_file'] = $filename; // this will be the local filename
+    // skip if the file exists (your own user should be here!)
+    if (file_exists($filename)) {
+        continue;
+    }
+
+    if ($do['list-profile-images']) {
+        $profile_images[$filename] = $url;
+    } else if ($do['download-profile-images']) {
+        $missing_media[$filename] = $url;
+    }
+}
+
+debug("Saving: $users_filename");
+$save = json_save($users_filename, $users);
+if (true !== $save) {
+    $errors[] = "\nFailed encoding JSON output file: $users_filename\n";
+    $errors[] = "\nJSON Error: $save\n";
+    goto errors;
+}
+
+// go to end and write file if --list-users, or continue processing after
+if ($do['list-users']) {
+    $output = [];
+    unset($tweets);
+    goto output;
+}
+
+// finish if listing profile images
+if ($do['list-profile-images']) {
+    ksort($profile_images);
+    $output = $profile_images;
+    goto output;
+}
 
 //-----------------------------------------------------------------------------
 // fetch local files for each tweet and add attribute to array which are

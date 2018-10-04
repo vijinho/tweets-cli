@@ -28,6 +28,10 @@ A command-line (CLI) script to batch-process and work with the files unzipped fr
 This is intentionally written as a stand-alone self-contained command-line php script, hacked-together, written in a procedural style.  These are the command-line options available:
 
 ```
+Usage: php resolve.php -u <URL>
+
+        Unshorten a URL, returning the text, CURL error code or -22 (wget failure) if other URL failure
+
 Usage: php tweets.php
 Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified tweet text is a new attribute: text
 (Specifying any other unknown argument options will be ignored.)
@@ -48,6 +52,7 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
              --list-videos            Only list all video files in export folder and halt
              --list-users             Only list all users in tweets, (default filename 'users.json') and halt
              --list-missing-media     List media URLs for which no local file exists and halt (implies --local)
+             --organize-media         Organize local downloaded media, for example split folder into date/month subfolders
              --download-missing-media Download missing media (from --list-missing-media) and halt, e.g.. missing media files (implies --local)
              --list-profile-images    Only list users profile images, (in filename 'users.json') and halt
              --download-profile-images  WARNING: This can be a lot of users! Download profile images.
@@ -55,7 +60,7 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
         -i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'
         -a,  --tweets-all             Get all tweets (further operations below will depend on this)
              --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php
-             --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php 
+             --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php
              --no-retweets            Drop re-tweets (RT's)
              --no-mentions            Drop tweets starting with mentions
              --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)
@@ -130,6 +135,11 @@ List URLs for which there are missing local media files:
 
 Download files from URLs for which there are missing local media files:
         `php tweets.php -a --download-missing-media --verbose`
+
+Organize 'tweet_media' folder into year/month subfolders:
+        `php tweets-cli/tweets.php --organize-media`
+
+
         
 ## Note
 

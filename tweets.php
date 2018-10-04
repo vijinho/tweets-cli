@@ -56,6 +56,7 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'list-videos',
     'list-users',
     'list-missing-media',
+    'organize-media',
     'download-missing-media',
     'list-profile-images',
     'download-profile-images',
@@ -92,6 +93,7 @@ foreach ([
  'list-videos'             => [null, 'list-videos'],
  'list-users'              => [null, 'list-users'],
  'list-missing-media'      => [null, 'list-missing-media'],
+ 'organize-media'          => [null, 'organize-media'],
  'download-missing-media'  => [null, 'download-missing-media'],
  'list-profile-images'     => [null, 'list-profile-images'],
  'download-profile-images' => [null, 'download-profile-images'],
@@ -117,7 +119,7 @@ if (array_key_exists('debug', $do) && !empty($do['debug'])) {
 if (array_key_exists('urls-resolve', $options)) {
     $do['urls-expand'] = 1;
 }
-if (array_key_exists('list-missing-media', $do)) {
+if (array_key_exists('list-missing-media', $do) || array_key_exists('organize-media', $do)) {
     $do['local']      = 1;
     $do['tweets-all'] = 1;
 }
@@ -176,6 +178,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\t     --list-videos            Only list all video files in export folder and halt",
             "\t     --list-users             Only list all users in tweets, (default filename 'users.json') and halt",
             "\t     --list-missing-media     List media URLs for which no local file exists and halt (implies --local)",
+            "\t     --organize-media         Organize local downloaded media, for example split folder into date/month subfolders",
             "\t     --download-missing-media Download missing media (from --list-missing-media) and halt, e.g.. missing media files (implies --local)",
             "\t     --list-profile-images    Only list users profile images, (in filename 'users.json') and halt",
             "\t     --download-profile-images  WARNING: This can be a lot of users! Download profile images.",
@@ -215,13 +218,19 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "Import grailbird files from 'import/data/js/tweets':\n\tphp tweets.php --grailbird-import=import/data/js/tweets --verbose",
             "Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:\n\tphp tweets-cli/tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose",
             "List URLs for which there are missing local media files:\n\tphp tweets.php --list-missing-media --verbose",
-            "Download files from URLs for which there are missing local media files:\n\tphp tweets.php -a --download-missing-media --verbose"
+            "Download files from URLs for which there are missing local media files:\n\tphp tweets.php -a --download-missing-media --verbose",
+            "Organize 'tweet_media' folder into year/month subfolders:\n\tphp tweets-cli/tweets.php --organize-media`"
         ]) . "\n";
 
     // goto jump here if there's a problem
     errors:
     if (!empty($errors)) {
-        output("Error(s):\n\t- " . join("\n\t- ", $errors) . "\n");
+        if (is_array($errors)) {
+            output("Error(s):\n\t- " . join("\n\t- ", $errors) . "\n");
+        } else {
+            print_r($errors);
+            exit;
+        }
     } else {
         output("No errors occurred.\n");
     }
@@ -653,7 +662,7 @@ if ($do['dupes']) {
     foreach ($deletes as $path) {
         if (TEST) {
             verbose('Deleting (NOT!): ' . $path);
-        } else {
+        } else if (UNLINK) {
             verbose('Deleting: ' . $path);
             if (!unlink($path)) {
                 $errors[] = "Error deleting file: $path";
@@ -727,7 +736,11 @@ if ($do['grailbird-import'] && !empty($grailbird_files) && is_array($grailbird_f
     }
 
     foreach ($grailbird_files as $f) {
-        $data = json_load_twitter($grailbird_import_dir, basename($f));
+        $filename = basename($f);
+        if (!preg_match('/^[\d]{4}[_]\d\d\.js/', $filename, $matches)) {
+            continue;
+        }
+        $data = json_load_twitter($grailbird_import_dir, $filename);
         if (!is_array($data)) {
             $errors = sprintf("No data found in file: %s", $f);
             goto errors;
@@ -1287,7 +1300,118 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
             array_merge($tweets[$id][$type], $media_files);
             $tweets[$id][$type] = $media_files;
         }
+        unset($content[$type]);
     }
+}
+
+//-----------------------------------------------------------------------------
+// organize media
+
+if ($do['organize-media'] && !empty($tweets) && is_array($tweets)) {
+
+    verbose("Organizing media files...");
+
+    foreach ($tweets as $tweet_id => $tweet) {
+
+       $tweet_media_folder = $target_folder = $dir . '/tweet_media';
+       $target_folder = $tweet_media_folder . '/' . date('Y/m', $tweet['created_at_unixtime']);
+
+       // create target folder
+       if (!file_exists($target_folder)) {
+           debug("Creating folder: $target_folder");
+           if (!mkdir($target_folder, 0777, true)) {
+               $errors[] = sprintf("Unable to create directory: %s", $target_folder);
+           }
+       } else {
+           if (!is_dir($target_folder)) {
+               $errors[] = sprintf("Unable to make directory, file with same name exists: %s", $target_folder);
+           }
+       }
+
+       // get files for each type of content
+       foreach (['images', 'videos', 'files'] as $type) {
+           if (!array_key_exists($type, $tweet) || empty($tweet[$type])) {
+               continue;
+           }
+
+           $content_files = $tweet[$type];
+           foreach ($content_files as $filename => $path) {
+               if (!file_exists($path)) {
+                   continue;
+               }
+               if (preg_match('/^tweet_media\/\d{4}\/\d{2}\/[^\.]+\..+/i', stristr($path, 'tweet_media'), $matches)) {
+                   continue;
+               }
+               // check target file exists
+               $target_file = $target_folder . '/' .  $filename;
+               if ($path == $target_file) {
+                   continue;
+               }
+               if (file_exists($target_file)) {
+                   if (file_exists($path) && filesize($path) == filesize($target_file)) {
+                        // identical files, remove first file
+                        if (!TEST && UNLINK) {
+                            unlink($path);
+                            continue;
+                        }
+                   }
+                   $errors[] = "Target file already exists:\n\t\t$target_file";
+               }
+               // rename file
+               debug(sprintf("Moving:\n\t%s\n\t%s", $path, $target_file));
+               if (!rename($path, $target_file)) {
+                   $errors[] = sprintf("Renaming failed\n\t\t%s\n\t\t%s", $path, $target_file);
+                   goto errors;
+               }
+           }
+       }
+    }
+
+    // clean-up hanging files in tweets_media
+    $tweet_media_files = files_list($tweet_media_folder);
+    foreach ($tweet_media_files as $file => $path) {
+        // skip if it's in a folder of yyyy/mm
+        if (empty($file) || empty($path) || preg_match('/^tweet_media\/\d{4}\/\d{2}\/[^\.]+\..+/i', stristr($path, 'tweet_media'), $matches)) {
+            continue;
+        }
+
+        // skip if filename not {99999-aaaaa.ext}
+        if (!preg_match('/(?P<tweet_id>^[\d]+)[-](?P<id>[^\.]+\..+)/i', $file, $matches)) {
+            //debug(sprintf("Bad filename:\n\t%s",  $path));
+            continue;
+        }
+
+        // if no tweet for the id, delete file
+        $tweet_id = $matches['tweet_id'];
+        if (!array_key_exists($tweet_id, $tweets) && $tweet_id > 9999999) {
+            debug(sprintf("Deleting:\n\t%s",  $path));
+            if (!TEST && UNLINK) {
+                unlink($path);
+            } else {
+                debug('NOT!');
+            }
+            continue;
+        }
+
+        $target_folder = $tweet_media_folder . '/' . date('Y/m', $tweet['created_at_unixtime']);
+        $target_file = $target_folder . '/' .  $filename;
+        if (file_exists($target_file)) {
+            if (file_exists($path) && filesize($path) == filesize($target_file)) {
+                 // identical files, remove first file
+                debug("Remove: $path");
+                if (!TEST && UNLINK) {
+                    unlink($path);
+                    continue;
+                }
+            }
+        }
+        debug(sprintf("Moving:\n\t%s\n\t%s", $path, $target_file));
+    }
+    if (count($errors)) {
+        goto errors;
+    }
+    $tweets = [];
+    goto output;
 }
 
 //-----------------------------------------------------------------------------
@@ -2059,11 +2183,6 @@ if ($do['keys-filter']) {
             }
         }
     }
-}
-
-if (!empty($tweets) && is_array($tweets)) {
-    debug('Removing empty values from tweets…');
-    $tweets = array_clear($tweets);
 }
 
 //-----------------------------------------------------------------------------

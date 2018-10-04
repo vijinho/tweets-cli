@@ -184,6 +184,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\t-a,  --tweets-all             Get all tweets (further operations below will depend on this)",
             "\t     --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php",
             "\t     --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php ",
+            "\t     --export-retweets        Export re-tweets (RT's) including 'reteeted_status' into a combined tweets file",
             "\t     --no-retweets            Drop re-tweets (RT's)",
             "\t     --no-mentions            Drop tweets starting with mentions",
             "\t     --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)",
@@ -679,7 +680,7 @@ if ($do['tweets-count']) {
     verbose('Counting tweets…');
 
     $tweets_count = tweets_count($dir);
-    $output       = $tweets_count;
+    $output       = [$tweets_count];
     verbose("Tweets Count: $tweets_count");
     goto output;
 }
@@ -747,6 +748,9 @@ if ($do['grailbird-import'] && !empty($grailbird_files) && is_array($grailbird_f
                 }
                 $tweets[$tweet_id] = $tweet;
                 continue;
+            } else {
+                // created_at is missing the time for most tweets before 2010/11
+                unset($tweet['created_at']);
             }
 
             // already in $tweets, merge it
@@ -2880,7 +2884,11 @@ function twitpic_download($url, $path, $mime_type = 'image/jpeg')
             "%s %s %s", $convert, escapeshellarg($path), escapeshellarg($path)
         );
         $results      = shell_execute($file_convert);
-        debug("Results:", $results);
+        if (false === $results) {
+            return false;
+        } else if (is_array($results)) {
+            debug("Results:", $results);
+        }
     }
 
     return true;

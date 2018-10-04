@@ -75,6 +75,7 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'local',
     'delete',
     'dupes',
+    'keys-required:',
     'keys-remove:',
     'keys-filter:'
     ]);
@@ -107,6 +108,7 @@ foreach ([
  'local'                   => ['l', 'local'],
  'unlink'                  => ['x', 'delete'],
  'dupes'                   => [null, 'dupes'],
+ 'keys-required'           => [null, 'keys-required'],
  'keys-remove'             => ['r', 'keys-remove'],
  'keys-filter'             => ['k', 'keys-filter'],
 ] as $i => $opts) {
@@ -195,6 +197,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\t-l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)",
             "\t-x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files",
             "\t     --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!",
+            "\t-r,  --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys",
             "\t-r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')",
             "\t-k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)",
             "\t     --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
@@ -219,7 +222,8 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:\n\tphp tweets-cli/tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose",
             "List URLs for which there are missing local media files:\n\tphp tweets.php --list-missing-media --verbose",
             "Download files from URLs for which there are missing local media files:\n\tphp tweets.php -a --download-missing-media --verbose",
-            "Organize 'tweet_media' folder into year/month subfolders:\n\tphp tweets-cli/tweets.php --organize-media`"
+            "Organize 'tweet_media' folder into year/month subfolders:\n\tphp tweets-cli/tweets.php --organize-media`",
+            "Export only tweets which have the 'withheld_in_countries' key to export/grailbird folder:\n\tphp tweets-cli/tweets.php -d -a -u --grailbird=export/grailbird --keys-required=withheld_in_countries,withheld_scope"
         ]) . "\n";
 
     // goto jump here if there's a problem
@@ -955,6 +959,20 @@ if (DEBUG && !empty($urls)) {
 }
 
 //-----------------------------------------------------------------------------
+// filter tweets on the keys specified on the  command-line
+
+if ($do['keys-required']) {
+    $required_keys = [];
+    if (!empty($options['keys-required'])) {
+        $required_keys = $options['keys-required'];
+    }
+
+    if (!empty($required_keys)) {
+        $required_keys = preg_split("/,/", $required_keys);
+    }
+}
+
+//-----------------------------------------------------------------------------
 // post-process fetched tweets n $data
 
 if (!empty($tweets) && is_array($tweets)) {
@@ -968,6 +986,21 @@ if (!empty($tweets) && is_array($tweets)) {
         // already done this if we imported grailbird files
         if (!$do['grailbird-import']) {
             unset($tweets[$t]);
+        }
+
+        // must contain all the keys to be included
+        if ($do['keys-required'] && !empty($required_keys) && is_array($required_keys) && count($required_keys)) {
+            $contains_required = true;
+            foreach ($required_keys as $key) {
+                if (!array_key_exists($key, $tweet)) {
+                    $contains_required = false;
+                    break;
+                }
+            }
+            if (!$contains_required) {
+                $tweets_count--;
+                continue;
+            }
         }
 
         // this situation occurs when importing grailbird js files
@@ -2170,9 +2203,10 @@ if ($do['keys-filter']) {
     if (!empty($only_keys)) {
         $only_keys = preg_split("/,/", $only_keys);
 
-        verbose('Filtering tweets to show only keys…', $only_keys);
-
         if (!empty($only_keys) && !empty($tweets) && is_array($tweets)) {
+
+            verbose('Filtering tweets to show only keys…', $only_keys);
+
             foreach ($tweets as $tweet_id => $tweet) {
                 foreach ($tweet as $k => $v) {
                     if (!in_array($k, $only_keys)) {

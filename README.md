@@ -69,6 +69,7 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
         -l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)
         -x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files
              --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!
+             --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys
         -r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')
         -k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)
              --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php
@@ -139,7 +140,8 @@ Download files from URLs for which there are missing local media files:
 Organize 'tweet_media' folder into year/month subfolders:
         `php tweets-cli/tweets.php --organize-media`
 
-
+Export only tweets which have the 'withheld in countries' key to export/grailbird folder:
+        `php tweets-cli/tweets.php -d -a -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'`
         
 ## Note
 

@@ -5,6 +5,7 @@ A command-line (CLI) script to batch-process and work with the files unzipped fr
 ## Features
 
 - It can be used to generate 'grailbird' javascript files which are compatible with the default twitter archive viewer application, of which I have written an experimental updated version called [tweets-gb](https://github.com/vijinho/tweets-gb) where the generated files can be dropped-in and optionally linked via a **file:///** URL to the physical file on disk when browsed off-line, locally and in a web browser.
+- Exported grailbird data can be viewed in [@vijinho/tweets-gb](https://github.com/vijinho/tweets-gb)
 - It can also import grailbird files, join them, and optionally merge into existing tweets.js data.
 - It can unshorten all short-links and resolve all links fully (saving the results to *urls.json* for re-use on successive runs (it's a time-consuming process to check-links which can take hours!).  This can be used with the **--offline** option to speed-up subsequent processing further. Media entity attributes will be updated to reflect changes.
 - Option **local** will check subfolders for content and add file and path information into the tweet under new attributes (videos, images, files).  Also these local files will be swapped-in for the remote-ones for viewing off-line and loading faster.
@@ -22,7 +23,7 @@ A command-line (CLI) script to batch-process and work with the files unzipped fr
 - Can just return a json file of either of the following: js/json files, images, videos or all files in the twitter backup folder.
 - Save basic info of all users mentioned or RT'd to *users.json* with **--list-users**
 - Adds new tweet attribute 'rt' if RT containing RT'd username
-
+ 
 ## Usage - CLI Options
 
 This is intentionally written as a stand-alone self-contained command-line php script, hacked-together, written in a procedural style.  These are the command-line options available:

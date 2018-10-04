@@ -791,26 +791,20 @@ verbose(sprintf("URLs loaded: %d", count($urls)));
 
 // summarise the number of source urls and target urls by host and tidy-up urls
 if (DEBUG && !empty($urls)) {
-    $rurls       = [];
-    $targets     = [];
+    $src_hosts       = [];
+    $target_hosts     = [];
     $unresolved  = [];
     $curl_errors = [];
     foreach ($urls as $url => $target) {
 
         $u = parse_url($url);
         if (!empty($u['host'])) {
-            if (!array_key_exists($u['host'], $rurls)) {
-                $rurls[$u['host']] = 0;
-            }
-            $rurls[$u['host']] ++;
+            $src_hosts[] = $u['host'];
         }
 
         $t = parse_url($target);
         if (array_key_exists('host', $t) && !empty($t['host'])) {
-            if (!array_key_exists($t['host'], $targets)) {
-                $targets[$t['host']] = 0;
-            }
-            $targets[$t['host']] ++;
+            $target_hosts[] = $t['host'];
         } else if (count(1 == count($t))) {
             $unresolved[$url] = $target;
             if (!array_key_exists($target, $curl_errors)) {
@@ -819,27 +813,29 @@ if (DEBUG && !empty($urls)) {
             $curl_errors[$target] ++;
         }
     }
-    ksort($rurls);
-    ksort($targets);
+
+    $src_hosts = array_count_values($src_hosts);
+    $target_hosts = array_count_values($target_hosts);
+    ksort($target_hosts);
     ksort($unresolved);
     ksort($curl_errors);
 
-    debug('Source URL hosts:', $rurls);
-    debug('Target URL hosts:', $targets);
+    debug('Source URL hosts:', $src_hosts);
+    debug('Target URL hosts:', $target_hosts);
     debug('Previous failed cURL targets:', $unresolved);
     debug('Summary failed cURL errors:', $curl_errors);
+
     debug("Unresolved short URL TARGET hosts and count of same short URL SOURCE hosts:");
-    foreach ($targets as $host => $count) {
+    foreach ($target_hosts as $host => $count) {
         if (in_array($host, $url_shorteners)) {
             debug(sprintf("TARGET: $host (%d)", $count));
-            if (array_key_exists($host, $rurls)) {
-                debug(sprintf("SOURCE: $host (%d)", $rurls[$host]));
+            if (array_key_exists($host, $src_hosts)) {
+                debug(sprintf("SOURCE: $host (%d)", $src_hosts[$host]));
             }
         }
     }
-
-    unset($rurls);
-    unset($targets);
+    unset($src_hosts);
+    unset($target_hosts);
     unset($unresolved);
     unset($curl_errors);
 }

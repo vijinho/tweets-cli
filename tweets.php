@@ -360,57 +360,6 @@ if (empty($output_dir) || !is_dir($output_dir)) {
 verbose(sprintf("OUTPUT DIR: %s", $output_dir));
 
 //-----------------------------------------------------------------------------
-// get directory for importing grailbird data and js files there-in
-
-if ($do['grailbird-import']) {
-
-    $grailbird_import_dir = '';
-    if (!empty($options['grailbird-import'])) {
-        $grailbird_import_dir = $options['grailbird-import'];
-    } else {
-        $grailbird_import_dir = $dir . '/import/data/js/tweets';
-    }
-
-    $grailbird_import_dir = realpath($grailbird_import_dir);
-    if (empty($grailbird_import_dir) || !is_dir($grailbird_import_dir)) {
-        $errors[] = "You must specify a valid grailbird import directory!";
-        goto errors;
-    }
-    verbose(sprintf("GRAILBIRD IMPORT DIR: %s", $grailbird_import_dir));
-
-    $grailbird_files = files_js($grailbird_import_dir);
-    if (empty($grailbird_files)) {
-        $errors[] = sprintf("No grailbird js files found to import in: %s!",
-            $grailbird_import_dir);
-        goto errors;
-    }
-    if (!empty($grailbird_files) && is_array($grailbird_files)) {
-        ksort($grailbird_files);
-    } else {
-        $grailbird_files = [];
-    }
-}
-
-//-----------------------------------------------------------------------------
-// directory for grailbird output
-
-if ($do['grailbird']) {
-    if (!empty($options['g'])) {
-        $grailbird_dir = $options['g'];
-    } elseif (!empty($options['grailbird'])) {
-        $grailbird_dir = $options['grailbird'];
-    }
-
-    if (empty($grailbird_dir) || !is_dir($grailbird_dir)) {
-        $errors[] = "You must specify a valid grailbird output directory!";
-        goto errors;
-    }
-    $grailbird_dir = realpath($grailbird_dir);
-
-    verbose(sprintf("GRAILBIRD OUTPUT DIR: %s", $grailbird_dir));
-}
-
-//-----------------------------------------------------------------------------
 // tweets data filename
 
 if (!empty($options['i'])) {
@@ -713,10 +662,67 @@ if ($do['tweets-all'] || $do['list-users']) {
         }
         goto errors;
     }
-    $tweets_count = count($tweets);
 
+    $tweets_count = count($tweets);
     verbose(sprintf("Tweets loaded: %d", $tweets_count));
+
+    verbose("Indexing loaded tweets…");
+    $tweets = array_column($tweets, null, 'id'); // re-index
 }
+
+
+//-----------------------------------------------------------------------------
+// directory for grailbird output
+
+if ($do['grailbird']) {
+    if (!empty($options['g'])) {
+        $grailbird_dir = $options['g'];
+    } elseif (!empty($options['grailbird'])) {
+        $grailbird_dir = $options['grailbird'];
+    }
+
+    if (empty($grailbird_dir) || !is_dir($grailbird_dir)) {
+        $errors[] = "You must specify a valid grailbird output directory!";
+        goto errors;
+    }
+    $grailbird_dir = realpath($grailbird_dir);
+
+    verbose(sprintf("GRAILBIRD OUTPUT DIR: %s", $grailbird_dir));
+}
+
+
+//-----------------------------------------------------------------------------
+// get directory for importing grailbird data and js files there-in
+
+if ($do['grailbird-import']) {
+
+    $grailbird_import_dir = '';
+    if (!empty($options['grailbird-import'])) {
+        $grailbird_import_dir = $options['grailbird-import'];
+    } else {
+        $grailbird_import_dir = $dir . '/import/data/js/tweets';
+    }
+
+    $grailbird_import_dir = realpath($grailbird_import_dir);
+    if (empty($grailbird_import_dir) || !is_dir($grailbird_import_dir)) {
+        $errors[] = "You must specify a valid grailbird import directory!";
+        goto errors;
+    }
+    verbose(sprintf("GRAILBIRD IMPORT DIR: %s", $grailbird_import_dir));
+
+    $grailbird_files = files_js($grailbird_import_dir);
+    if (empty($grailbird_files)) {
+        $errors[] = sprintf("No grailbird js files found to import in: %s!",
+            $grailbird_import_dir);
+        goto errors;
+    }
+    if (!empty($grailbird_files) && is_array($grailbird_files)) {
+        ksort($grailbird_files);
+    } else {
+        $grailbird_files = [];
+    }
+}
+
 
 //-----------------------------------------------------------------------------
 // get directory for importing grailbird data and js files there-in
@@ -728,16 +734,6 @@ if ($do['grailbird-import'] && !empty($grailbird_files) && is_array($grailbird_f
 
     if (empty($tweets) || !is_array($tweets)) {
         $tweets = [];
-    } else {
-
-        verbose("Indexing pre-loaded tweets…");
-
-        foreach ($tweets as $t => $tweet) {
-            // unset because we will be re-writing the tweet index and the number
-            // is going to be using the tweet id which is a much higher value
-            unset($tweets[$t]);
-            $tweets[$tweet['id']] = $tweet;
-        }
     }
 
     foreach ($grailbird_files as $f) {
@@ -752,12 +748,11 @@ if ($do['grailbird-import'] && !empty($grailbird_files) && is_array($grailbird_f
         }
 
         debug(sprintf('Importing tweets from: %s', $f));
+        $data = array_column($data, null, 'id');
 
         // merge each tweet
-        foreach ($data as $i => $tweet) {
-            unset($data[$i]);
+        foreach ($data as $tweet_id => $tweet) {
 
-            $tweet_id = $tweet['id'];
             // didn't exist, add to $tweets and continue
             if (!array_key_exists($tweet_id, $tweets)) {
                 if ($do['tweets-all']) {
@@ -779,6 +774,7 @@ if ($do['grailbird-import'] && !empty($grailbird_files) && is_array($grailbird_f
     unset($data);
 }
 
+
 //-----------------------------------------------------------------------------
 // list all users
 
@@ -795,7 +791,7 @@ if (!is_string($users)) {
 }
 
 if (!empty($tweets) && is_array($tweets)) {
-    foreach ($tweets as $t => $tweet) {
+    foreach ($tweets as $tweet) {
 
         // get user from retweeted_status/user_mentions, if exists, add/replace
         // NOTE: this only exists in the old/standard twitter backup files, not in the huge tweet.js file
@@ -980,7 +976,7 @@ if (!empty($tweets) && is_array($tweets)) {
 
     verbose("Post-processing tweets…");
 
-    foreach ($tweets as $t => $tweet) {
+    foreach ($tweets as $tweet_id => $tweet) {
 
         // unset because we will be re-writing the tweet index and the number
         // is going to be using the tweet id which is a much higher value
@@ -1056,10 +1052,6 @@ if (!empty($tweets) && is_array($tweets)) {
                 ];
             }
         }
-
-        // set index to tweet_id
-        $tweet_id          = $tweet['id'];
-        $tweets[$tweet_id] = $tweet;
 
         // if there was no previous 'text' key, use original 'full_text' of tweet
         if (empty($tweet['text'])) {
@@ -1137,6 +1129,7 @@ if (!empty($tweets) && is_array($tweets)) {
     }
 }
 verbose(sprintf("Tweets to be processed: %d", $tweets_count));
+exit;
 
 //-----------------------------------------------------------------------------
 // fetch local files for each tweet and add attribute to array which are

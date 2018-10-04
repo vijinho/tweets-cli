@@ -870,6 +870,10 @@ if ($do['keys-required']) {
 
     if (!empty($required_keys)) {
         $required_keys = preg_split("/,/", $required_keys);
+        if (!empty($required_keys)) {
+            $required_keys = array_unique($required_keys);
+            sort($required_keys);
+        }
     }
 }
 
@@ -2177,6 +2181,8 @@ if (!empty($remove_keys)) {
     $remove_keys = preg_split("/,/", $remove_keys);
     verbose('Removing keys from tweets…', $remove_keys);
     if (!empty($remove_keys) && is_array($remove_keys)) {
+        $remove_keys = array_unique($remove_keys);
+        sort($only_keys);
         $tweets = array_clear($tweets, $remove_keys);
     }
 }
@@ -2197,9 +2203,9 @@ if ($do['keys-filter']) {
         $only_keys = preg_split("/,/", $only_keys);
 
         if (!empty($only_keys) && !empty($tweets) && is_array($tweets)) {
-
             verbose('Filtering tweets to show only keys…', $only_keys);
-
+            $only_keys = array_unique($only_keys);
+            sort($only_keys);
             foreach ($tweets as $tweet_id => $tweet) {
                 foreach ($tweet as $k => $v) {
                     if (!in_array($k, $only_keys)) {

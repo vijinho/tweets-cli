@@ -80,7 +80,7 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
 
 $do = [];
 foreach ([
- 'verbose'                 => ['v', 'verbose'],
+'verbose'                 => ['v', 'verbose'],
  'test'                    => ['t', 'test'],
  'debug'                   => ['d', 'debug'],
  'test'                    => ['t', 'test'],
@@ -154,69 +154,69 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
     }
 
     print join("\n",
-        [
-        "\nUsage: php resolve.php -u <URL>",
-        "\n\tUnshorten a URL, returning the text, CURL error code or -22 (wget failure) if other URL failure\n",
-        "Usage: php tweets.php",
-        "Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified tweet text is a new attribute: text",
-        "(Specifying any other unknown argument options will be ignored.)\n",
-        "\t-h,  --help                   Display this help and exit",
-        "\t-v,  --verbose                Run in verbose mode",
-        "\t-d,  --debug                  Run in debug mode (implies also -v, --verbose)",
-        "\t-t,  --test                   Run in test mode, show what would be done, NO filesystem changes.",
-        "\t     --dir={.}                Directory of unzipped twitter backup files (current dir if not specified)",
-        "\t     --dir-output={.}         Directory to output files in (default to -dir above)",
-        "\t     --format={json}          Output format for script data: txt|php|json (default)",
-        "\t-f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'",
-        "\t-g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir",
-        "\t     --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.",
-        "\t     --list                   Only list all files in export folder and halt - filename",
-        "\t     --list-js                Only List all javascript files in export folder and halt",
-        "\t     --list-images            Only list all image files in export folder and halt",
-        "\t     --list-videos            Only list all video files in export folder and halt",
-        "\t     --list-users             Only list all users in tweets, (default filename 'users.json') and halt",
-        "\t     --list-missing-media     List media URLs for which no local file exists and halt (implies --local)",
-        "\t     --download-missing-media Download missing media (from --list-missing-media) and halt, e.g.. missing media files (implies --local)",
-        "\t     --list-profile-images    Only list users profile images, (in filename 'users.json') and halt",
-        "\t     --download-profile-images  WARNING: This can be a lot of users! Download profile images.",
-        "\t     --tweets-count           Only show the total number of tweets and halt",
-        "\t-i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'",
-        "\t-a,  --tweets-all             Get all tweets (further operations below will depend on this)",
-        "\t     --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php",
-        "\t     --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php ",
-        "\t     --no-retweets            Drop re-tweets (RT's)",
-        "\t     --no-mentions            Drop tweets starting with mentions",
-        "\t     --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)",
-        "\t-u,  --urls-resolve           Shorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand",
-        "\t-o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)",
-        "\t-l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)",
-        "\t-x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files",
-        "\t     --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!",
-        "\t-r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')",
-        "\t-k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)",
-        "\t     --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
-        "\t     --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given",
-        "\nExamples:",
-        "Report duplicate tweet media files and output to 'dupes.json':\n\tphp tweets-cli/tweets.php -fdupes.json --dupes",
-        "Show total tweets in tweets file:\n\tphp tweets.php --tweets-count --verbose",
-        "Write all users mentioned in tweets to file 'users.json':\n\tphp tweets.php --list-users --verbose",
-        "Show javascript files in backup folder:\n\tphp tweets.php --list-js --verbose",
-        "Resolve all URLs in 'tweet.js' file, writing output to 'tweet.json':\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json",
-        "Resolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json --grailbird=grailbird",
-        "Get tweets, only id, created and text keys:\n\tphp tweets.php -v -a -o -u --keys-filter=id,created_at,text",
-        "Get tweets from 1 Jan 2017 to 'last friday':\n\tphp tweets.php -v -a -o -u --date-from '2017-01-01' --date-to='last friday'",
-        "Filter tweet text on word 'hegemony' since last year\n\t php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony",
-        "Generate grailbird files with expanded/resolved URLs:\n\tphp tweets.php --tweets-all --verbose --urls-expand --urls-resolve --grailbird=grailbird",
-        "Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --grailbird=grailbird",
-        "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --grailbird=grailbird",
-        "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird",
-        "Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':\n\tphp tweets-cli/tweets.php --delete --dupes",
-        "Extract the first couple of words of the tweet and name the saved regexp 'words':\n\ttweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words",
-        "Import grailbird files from 'import/data/js/tweets':\n\tphp tweets.php --grailbird-import=import/data/js/tweets --verbose",
-        "Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:\n\tphp tweets-cli/tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose",
-        "List URLs for which there are missing local media files:\n\tphp tweets.php --list-missing-media --verbose",
-        "Download files from URLs for which there are missing local media files:\n\tphp tweets.php -a --download-missing-media --verbose"
-    ]) . "\n";
+            [
+            "\nUsage: php resolve.php -u <URL>",
+            "\n\tUnshorten a URL, returning the text, CURL error code or -22 (wget failure) if other URL failure\n",
+            "Usage: php tweets.php",
+            "Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified tweet text is a new attribute: text",
+            "(Specifying any other unknown argument options will be ignored.)\n",
+            "\t-h,  --help                   Display this help and exit",
+            "\t-v,  --verbose                Run in verbose mode",
+            "\t-d,  --debug                  Run in debug mode (implies also -v, --verbose)",
+            "\t-t,  --test                   Run in test mode, show what would be done, NO filesystem changes.",
+            "\t     --dir={.}                Directory of unzipped twitter backup files (current dir if not specified)",
+            "\t     --dir-output={.}         Directory to output files in (default to -dir above)",
+            "\t     --format={json}          Output format for script data: txt|php|json (default)",
+            "\t-f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'",
+            "\t-g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir",
+            "\t     --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.",
+            "\t     --list                   Only list all files in export folder and halt - filename",
+            "\t     --list-js                Only List all javascript files in export folder and halt",
+            "\t     --list-images            Only list all image files in export folder and halt",
+            "\t     --list-videos            Only list all video files in export folder and halt",
+            "\t     --list-users             Only list all users in tweets, (default filename 'users.json') and halt",
+            "\t     --list-missing-media     List media URLs for which no local file exists and halt (implies --local)",
+            "\t     --download-missing-media Download missing media (from --list-missing-media) and halt, e.g.. missing media files (implies --local)",
+            "\t     --list-profile-images    Only list users profile images, (in filename 'users.json') and halt",
+            "\t     --download-profile-images  WARNING: This can be a lot of users! Download profile images.",
+            "\t     --tweets-count           Only show the total number of tweets and halt",
+            "\t-i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'",
+            "\t-a,  --tweets-all             Get all tweets (further operations below will depend on this)",
+            "\t     --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php",
+            "\t     --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php ",
+            "\t     --no-retweets            Drop re-tweets (RT's)",
+            "\t     --no-mentions            Drop tweets starting with mentions",
+            "\t     --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)",
+            "\t-u,  --urls-resolve           Shorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand",
+            "\t-o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)",
+            "\t-l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)",
+            "\t-x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files",
+            "\t     --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!",
+            "\t-r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')",
+            "\t-k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)",
+            "\t     --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
+            "\t     --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given",
+            "\nExamples:",
+            "Report duplicate tweet media files and output to 'dupes.json':\n\tphp tweets-cli/tweets.php -fdupes.json --dupes",
+            "Show total tweets in tweets file:\n\tphp tweets.php --tweets-count --verbose",
+            "Write all users mentioned in tweets to file 'users.json':\n\tphp tweets.php --list-users --verbose",
+            "Show javascript files in backup folder:\n\tphp tweets.php --list-js --verbose",
+            "Resolve all URLs in 'tweet.js' file, writing output to 'tweet.json':\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json",
+            "Resolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json --grailbird=grailbird",
+            "Get tweets, only id, created and text keys:\n\tphp tweets.php -v -a -o -u --keys-filter=id,created_at,text",
+            "Get tweets from 1 Jan 2017 to 'last friday':\n\tphp tweets.php -v -a -o -u --date-from '2017-01-01' --date-to='last friday'",
+            "Filter tweet text on word 'hegemony' since last year\n\t php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony",
+            "Generate grailbird files with expanded/resolved URLs:\n\tphp tweets.php --tweets-all --verbose --urls-expand --urls-resolve --grailbird=grailbird",
+            "Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --grailbird=grailbird",
+            "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --grailbird=grailbird",
+            "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird",
+            "Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':\n\tphp tweets-cli/tweets.php --delete --dupes",
+            "Extract the first couple of words of the tweet and name the saved regexp 'words':\n\ttweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words",
+            "Import grailbird files from 'import/data/js/tweets':\n\tphp tweets.php --grailbird-import=import/data/js/tweets --verbose",
+            "Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:\n\tphp tweets-cli/tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose",
+            "List URLs for which there are missing local media files:\n\tphp tweets.php --list-missing-media --verbose",
+            "Download files from URLs for which there are missing local media files:\n\tphp tweets.php -a --download-missing-media --verbose"
+        ]) . "\n";
 
     // goto jump here if there's a problem
     errors:
@@ -291,7 +291,6 @@ debug("online_sleep: " . $online_sleep);
 $tweets        = [];
 $tweets_count  = 0;
 $missing_media = []; // missing local media files, [filename => source url]
-
 //-----------------------------------------------------------------------------
 // set the script output format to one of (json, php, text)
 
@@ -1110,7 +1109,7 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
         // find the files for the tweet
         if (!empty($tweet['entities']['media'])) {
             $extended_entities = empty($tweet['extended_entities']['media']) ? [
-] : $tweet['extended_entities']['media'];
+                ] : $tweet['extended_entities']['media'];
             foreach ([$tweet['entities']['media'], $extended_entities] as
                     $entities) {
                 if (empty($entities)) {
@@ -1664,12 +1663,10 @@ if (!empty($tweets) && is_array($tweets)) {
                     $entities[$e] = $entity;
                 }
 
-                switch ($index) {
-                    case 0:
-                        $tweet['entities']['media'] = $entities;
-
-                    case 1:
-                        $tweet['extended_entities'] = $entities;
+                if (0 === $index) {
+                    $tweet['entities']['media'] = $entities;
+                } else { // 1
+                    $tweet['extended_entities'] = $entities;
                 }
             }
         }
@@ -1709,37 +1706,41 @@ if (!empty($tweets) && is_array($tweets)) {
                 ];
             }
         }
-        $tweet['entities']['urls']   = $tweet_urls;
+        $tweet['entities']['urls'] = $tweet_urls;
 
 
         // find twitpic, remove if in files
-        $search = $replace = [];
-        $text = $tweet['text'];
+        $search  = $replace = [];
+        $text    = $tweet['text'];
 
         // get the other image urls
         if ($do['local'] && array_key_exists('images', $tweet)) {
-            if (preg_match_all('/(?P<url>http[s]?:\/\/[^\s]+[^\.\s]+)/i', $text, $matches)) {
+            if (preg_match_all('/(?P<url>http[s]?:\/\/[^\s]+[^\.\s]+)/i', $text,
+                    $matches)) {
                 foreach ($matches['url'] as $url) {
                     $parts = parse_url($url);
-                    if (empty($parts) || !is_array($parts) || !array_key_exists('host', $parts)) {
+                    if (empty($parts) || !is_array($parts) || !array_key_exists('host',
+                            $parts)) {
                         continue;
                     }
-                    $found = false;
+                    $found    = false;
                     $image_id = null;
                     switch ($parts['host']) {
-                        case 'twitpic.com';
-                            $image_id = $tweet['id'] . '-' . stristr($url, substr($parts['path'], 1));
+                        case 'twitpic.com':
+                            $image_id = $tweet['id'] . '-' . stristr($url,
+                                    substr($parts['path'], 1));
                             foreach (['jpg', 'png', 'jpeg', 'gif'] as $ext) {
                                 $image_file = $image_id . '.' . $ext;
-                                if (array_key_exists( $image_file, $tweet['images'])) {
-                                    $search[] = $url;
+                                if (array_key_exists($image_file,
+                                        $tweet['images'])) {
+                                    $search[]  = $url;
                                     $replace[] = '';
-                                    $found = true;
+                                    $found     = true;
                                     break;
                                 }
                             }
                             break;
-                        default;
+                        default:
                             continue;
                             break;
                     }
@@ -1747,7 +1748,7 @@ if (!empty($tweets) && is_array($tweets)) {
                     if ($do['list-missing-media'] || $do['download-missing-media']) {
                         if (false === $found && null !== $image_id) {
                             debug("Not found: \n$url\n$image_id");
-                            $path = $dir . '/' . 'tweet_media/' . $image_id . '.jpg';
+                            $path                 = $dir . '/' . 'tweet_media/' . $image_id . '.jpg';
                             $missing_media[$path] = $url;
                         }
                     }
@@ -1756,11 +1757,11 @@ if (!empty($tweets) && is_array($tweets)) {
         }
 
         // perform the search/replace on urls in 'text'
-        $text = trim(str_replace($search, $replace, $text));
+        $text                        = trim(str_replace($search, $replace, $text));
         $tweet['display_text_range'] = [0, strlen($text)];
-        $tweet['text'] = $text;
+        $tweet['text']               = $text;
         ksort($tweet);
-        $tweets[$tweet_id] = $tweet;
+        $tweets[$tweet_id]           = $tweet;
     }
 
     ksort($tweets);
@@ -1778,7 +1779,6 @@ if (!empty($tweets) && is_array($tweets)) {
 
 //-----------------------------------------------------------------------------
 // download missing media files
-
 // show missing media files if --missing-media specified, and finish
 if ($do['list-missing-media']) {
     $output = $missing_media;
@@ -2137,7 +2137,6 @@ exit;
 //-----------------------------------------------------------------------------
 // functions used above
 
-
 /**
  * Output string, to STDERR if available
  *
@@ -2154,12 +2153,11 @@ function output($text, $STDERR = true)
 }
 
 
-
 /**
  * Dump debug data if DEBUG constant is set
  *
  * @param  optional string $string string to output
- * @param  mixed $data to dump
+ * @param  optional mixed $data to dump
  * @return boolean true if string output, false if not
  */
 function debug($string = '', $data = [])
@@ -2167,7 +2165,7 @@ function debug($string = '', $data = [])
     if (DEBUG) {
         output(trim('[D ' . get_memory_used() . '] ' . $string) . "\n");
         if (!empty($data)) {
-            output(print_r($data,1));
+            output(print_r($data, 1));
         }
         return true;
     }
@@ -2182,12 +2180,12 @@ function debug($string = '', $data = [])
  * @param  optional mixed $data to dump
  * @return boolean true if string output, false if not
  */
-function verbose($string, $data = '')
+function verbose($string, $data = [])
 {
     if (VERBOSE && !empty($string)) {
         output(trim('[V' . ((DEBUG) ? ' ' . get_memory_used() : '') . '] ' . $string) . "\n");
         if (!empty($data)) {
-            output(print_r($data,1));
+            output(print_r($data, 1));
         }
         return true;
     }
@@ -2786,7 +2784,6 @@ function url_download($url, $path)
     $commands = get_commands();
     $wget     = $commands['wget'];
     $cmd      = "$wget --user-agent='' --verbose -t 3 -T 7 -nc %s -O %s"; // wget args to sprintf to fetch a url and save as a file
-
     // remove if zero-byte file because wget will just skip otherwise
     if (file_exists($path) && 0 === filesize($path)) {
         unlink($path);
@@ -2819,6 +2816,7 @@ function url_download($url, $path)
     // return std err if not success
     return $results['stderr'];
 }
+
 
 /**
  * Download an image URL from twitpic.com and save as a given filename using 'wget'
@@ -2875,17 +2873,16 @@ function twitpic_download($url, $path, $mime_type = 'image/jpeg')
     // convert if wrong file type for extension
     $type = mime_content_type($path);
     if ($mime_type !== $type) {
-        debug("Convert-ing file from '%s' to '%'", $type, $mime_type);
+        debug(sprintf("Convert-ing file from '%s' to '%'", $type, $mime_type));
         // as long as the extension is correct, convert will convert incorrect image format by extension
         // i.e. a PNG with extension JPG will be converted to JPG by doing 'convert file.jpg file.jpg'
         $file_convert = sprintf(
-            "%s %s %s", $convert,
-            escapeshellarg($path),
-            escapeshellarg($path)
+            "%s %s %s", $convert, escapeshellarg($path), escapeshellarg($path)
         );
-        $results = shell_execute($fetch_url);
+        $results      = shell_execute($file_convert);
         debug("Results:", $results);
     }
 
     return true;
 }
+

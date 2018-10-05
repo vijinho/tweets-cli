@@ -1493,15 +1493,16 @@ if ($do['urls-resolve'] && !OFFLINE) {
             debug(sprintf("Force checked source URL\n\t%s\n\t%s", $url, $target));
         }
 
+        $parts2   = parse_url($target);
+
         // the target url exists and is a string, check if its a short url
         if (!empty($target) && is_string($target)) {
             $recheck = false;
-            $parts   = parse_url($target);
-            if (false === $parts || count($parts) <= 1) {
+            if (false === $parts2 || count($parts2) <= 1) {
                 // bad url, so set it to 0, skip
                 verbose(sprintf("Parse issue, skipping url\n\t%s", $url));
                 $urls[$url] = 0;
-            } else if (!in_array(strtolower($parts['host']), $url_shorteners)) {
+            } else if (!in_array(strtolower($parts2['host']), $url_shorteners)) {
                 // is not a shortened url, skip
                 /*
                   if ($url == $target) {
@@ -1512,8 +1513,22 @@ if ($do['urls-resolve'] && !OFFLINE) {
                  */
                 continue;
             } else {
+                if ($target === $url) {
+                    continue;
+                }
+
+                // check for only changed scheme difference
+                if (array_key_exists('scheme', $parts) && array_key_exists('scheme', $parts2)) {
+                    unset($parts['scheme']);
+                    unset($parts2['scheme']);
+                    if ($parts === $parts2) {
+                        continue;
+                    }
+                }
+
                 // the target url was a shortened url, so find the destination of it
                 verbose(sprintf("Checking short URL\n\t%s\n\t%s", $url, $target));
+
                 // update the target url to the final destination url
                 $check_start = time(); // timer
                 $newtarget   = url_resolve($target);
@@ -2988,7 +3003,7 @@ function url_resolve($url, $options = [])
             : $timeout * 3;
     $timeout          = "--connect-timeout $timeout --max-time $max_time";
     $user_agent       = '-A ' . escapeshellarg('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36');
-    $curl_options     = "$user_agent $timeout --ciphers ALL -k --ssl-no-revoke";
+    $curl_options     = "$user_agent $timeout --ciphers ALL -k";
     $curl_url_resolve = "$curl $curl_options -I -i -Ls -w %{url_effective} -o /dev/null " . escapeshellarg($url);
     $output           = [];
     $target_url       = exec($curl_url_resolve, $output, $status);

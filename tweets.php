@@ -119,22 +119,22 @@ foreach ([
     $do[$i] = (int) (array_key_exists($opts[0], $options) || array_key_exists($opts[1],
             $options));
 }
+
 if (array_key_exists('debug', $do) && !empty($do['debug'])) {
-    $do['verbose'] = $options['verbose'] = 1;
+    $do['verbose']         = $options['verbose'] = 1;
 }
 if (array_key_exists('urls-check-force', $options)) {
-    $do['urls-check'] = $options['urls-check'] = 1;
+    $do['urls-check']      = $options['urls-check'] = 1;
 }
 if (array_key_exists('urls-check', $options)) {
-    $do['urls-resolve'] = $options['urls-resolve'] = 1;
+    $do['urls-resolve']    = $options['urls-resolve'] = 1;
 }
 if (array_key_exists('urls-resolve', $options)) {
-    $do['urls-expand'] = $options['urls-expand'] = 1;
+    $do['urls-expand']     = $options['urls-expand'] = 1;
 }
 if (array_key_exists('list-missing-media', $do) || array_key_exists('organize-media',
         $do)) {
-    $do['local']      = $options['local'] = 1;
-    $do['tweets-all'] = $options['tweets-all'] = 1;
+    $do['tweets-all']      = $options['tweets-all'] = 1;
 }
 ksort($do);
 
@@ -317,6 +317,7 @@ debug("online_sleep: " . $online_sleep);
 $tweets        = [];
 $tweets_count  = 0;
 $missing_media = []; // missing local media files, [filename => source url]
+
 //-----------------------------------------------------------------------------
 // set the script output format to one of (json, php, text)
 
@@ -459,7 +460,7 @@ if (!empty($errors)) {
 //-----------------------------------------------------------------------------
 // pre-fetch all files in advance if a list command-line option was specified
 if ($do['list'] || $do['local'] || $do['dupes']) {
-    debug('Pre-fetching files list from: ' . $dir);
+    debug('Fetching files list from: ' . $dir);
     $files = files_list($dir);
     if (empty($files)) {
         $errors[] = "No files found!";
@@ -908,7 +909,8 @@ if (!empty($tweets) && is_array($tweets)) {
 
         // must contain all the keys to be included
         if ($do['keys-required'] && !empty($keys_required) && is_array($keys_required)
-            && count($keys_required) !== count(array_intersect_key(array_flip($keys_required), $tweet))) {
+            && count($keys_required) !== count(array_intersect_key(array_flip($keys_required),
+                    $tweet))) {
             unset($tweets[$tweet_id]);
             $tweets_count--;
             continue;
@@ -1156,7 +1158,7 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
     foreach ($tweets as $tweet_id => $tweet) {
 
         // for removing links to local media files in tweet text
-        $search    = $replace   = [];
+        $search  = $replace = [];
         if (empty($tweet['text'])) {
             if (!empty($tweet['full_text'])) {
                 $tweet['text'] = $tweet['full_text'];
@@ -1481,9 +1483,9 @@ if ($do['urls-resolve'] && !OFFLINE) {
         $urls_remaining--;
 
         // bad URL chars
-        $s = ['…', 'A%E2%80%A6', '%E2%80%A6'];
-        $r = ['', '', ''];
-        $url = str_replace($s, $r, $url);
+        $s      = ['…', 'A%E2%80%A6', '%E2%80%A6'];
+        $r      = ['', '', ''];
+        $url    = str_replace($s, $r, $url);
         $target = str_replace($s, $r, $target);
 
         $parts = parse_url($url);
@@ -1493,19 +1495,19 @@ if ($do['urls-resolve'] && !OFFLINE) {
             continue;
         }
 
-                // skipping youtube and twitter because in the 1000s
-        if ('twitter.com' === $parts['host' ] || 'www.youtube.com' === $parts['host']) {
+        // skipping youtube and twitter because in the 1000s
+        if ('twitter.com' === $parts['host'] || 'www.youtube.com' === $parts['host']) {
             continue;
         }
 
         // force a check!
         if (!OFFLINE && $do['urls-check-force'] && (empty($target) || is_numeric($target))) {
-            $target = url_resolve($url);
+            $target     = url_resolve($url);
             $urls[$url] = $target;
             debug(sprintf("Force checked source URL\n\t%s\n\t%s", $url, $target));
         }
 
-        $parts2   = parse_url($target);
+        $parts2 = parse_url($target);
 
         // the target url exists and is a string, check if its a short url
         if (!empty($target) && is_string($target)) {
@@ -1530,7 +1532,8 @@ if ($do['urls-resolve'] && !OFFLINE) {
                 }
 
                 // check for only changed scheme difference
-                if (array_key_exists('scheme', $parts) && array_key_exists('scheme', $parts2)) {
+                if (array_key_exists('scheme', $parts) && array_key_exists('scheme',
+                        $parts2)) {
                     unset($parts['scheme']);
                     unset($parts2['scheme']);
                     if ($parts === $parts2) {
@@ -2275,38 +2278,39 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
 
         if (false !== $fp) {
             // create data for CSV line
-            $csv_row = [
-                'id' => '', // this is not used in csv file, but 'tweet_id' is
-                'tweet_id' => '',
-                'in_reply_to_status_id' => '',
-                'in_reply_to_user_id' => '',
-                'timestamp' => date('Y-m-d h:i:s +0000', $tweet['created_at_unixtime']),
-                'source' => '',
-                'text' => '',
-                'retweeted_status_id' => '',
-                'retweeted_status_user_id' => '',
+            $csv_row             = [
+                'id'                         => '', // this is not used in csv file, but 'tweet_id' is
+                'tweet_id'                   => '',
+                'in_reply_to_status_id'      => '',
+                'in_reply_to_user_id'        => '',
+                'timestamp'                  => date('Y-m-d h:i:s +0000',
+                    $tweet['created_at_unixtime']),
+                'source'                     => '',
+                'text'                       => '',
+                'retweeted_status_id'        => '',
+                'retweeted_status_user_id'   => '',
                 'retweeted_status_timestamp' => '',
-                'expanded_urls' => ''
+                'expanded_urls'              => ''
             ];
-            $csv_row = array_intersect_key(
-                array_merge($csv_row, $tweet),
-                array_flip(array_keys($csv_row))
+            $csv_row             = array_intersect_key(
+                array_merge($csv_row, $tweet), array_flip(array_keys($csv_row))
             );
             $csv_row['tweet_id'] = $csv_row['id']; // tweet_id in csv file
-
             // create retweet values if present
-            if (!empty($tweet['retweeted_status']) && is_array($tweet['retweeted_status']) && count($tweet['retweeted_status'])) {
-                $rt = $tweet['retweeted_status'];
-                $csv_row['retweeted_status_id'] = $rt['id_str'];
-                $csv_row['retweeted_status_timestamp'] = date('Y-m-d h:i:s +0000', strtotime($rt['created_at']));
+            if (!empty($tweet['retweeted_status']) && is_array($tweet['retweeted_status'])
+                && count($tweet['retweeted_status'])) {
+                $rt                                    = $tweet['retweeted_status'];
+                $csv_row['retweeted_status_id']        = $rt['id_str'];
+                $csv_row['retweeted_status_timestamp'] = date('Y-m-d h:i:s +0000',
+                    strtotime($rt['created_at']));
                 if (array_key_exists('user', $rt)) {
                     $csv_cols['retweeted_status_user_id'] = $rt['user']['id_str'];
                 }
             }
 
             // extract URLs from tweet
-            if (preg_match_all('/(?P<url>http[s]?:\/\/[^\s]+[^\.\s]+)/i', $tweet['text'],
-                    $matches)) {
+            if (preg_match_all('/(?P<url>http[s]?:\/\/[^\s]+[^\.\s]+)/i',
+                    $tweet['text'], $matches)) {
                 $csv_row['expanded_urls'] = join(',', $matches['url']);
             }
 
@@ -2335,7 +2339,8 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
 
     if (false !== $fp) {
         fclose($fp);
-        verbose(sprintf("Wrote grailbird tweets index to CSV filename '%s' (%d bytes)", $csv_filename, filesize($csv_filename)));
+        verbose(sprintf("Wrote grailbird tweets index to CSV filename '%s' (%d bytes)",
+                $csv_filename, filesize($csv_filename)));
     }
 
     // write the monthly tweets array to individual files

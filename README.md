@@ -66,6 +66,7 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
              --no-mentions            Drop tweets starting with mentions
              --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)
         -u,  --urls-resolve           Shorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand
+             --urls-check             Check every single target url (except for twitter.com and youtube.com)  and update - implies --urls-resolve
         -o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)
         -l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)
         -x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files

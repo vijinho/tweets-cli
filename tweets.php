@@ -71,6 +71,8 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'no-mentions',
     'urls-expand',
     'urls-resolve',
+    'urls-check',
+    'urls-check-force',
     'offline',
     'local',
     'delete',
@@ -104,6 +106,8 @@ foreach ([
  'no-mentions'             => [null, 'no-mentions'],
  'urls-expand'             => [null, 'urls-expand'],
  'urls-resolve'            => ['u', 'urls-resolve'],
+ 'urls-check'              => [null, 'urls-check'],
+ 'urls-check-force'        => [null, 'urls-check-force'],
  'offline'                 => ['o', 'offline'],
  'local'                   => ['l', 'local'],
  'unlink'                  => ['x', 'delete'],
@@ -116,15 +120,21 @@ foreach ([
             $options));
 }
 if (array_key_exists('debug', $do) && !empty($do['debug'])) {
-    $do['verbose'] = 1;
+    $do['verbose'] = $options['verbose'] = 1;
+}
+if (array_key_exists('urls-check-force', $options)) {
+    $do['urls-check'] = $options['urls-check'] = 1;
+}
+if (array_key_exists('urls-check', $options)) {
+    $do['urls-resolve'] = $options['urls-resolve'] = 1;
 }
 if (array_key_exists('urls-resolve', $options)) {
-    $do['urls-expand'] = 1;
+    $do['urls-expand'] = $options['urls-expand'] = 1;
 }
 if (array_key_exists('list-missing-media', $do) || array_key_exists('organize-media',
         $do)) {
-    $do['local']      = 1;
-    $do['tweets-all'] = 1;
+    $do['local']      = $options['local'] = 1;
+    $do['tweets-all'] = $options['tweets-all'] = 1;
 }
 ksort($do);
 
@@ -193,7 +203,9 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\t     --no-retweets            Drop re-tweets (RT's)",
             "\t     --no-mentions            Drop tweets starting with mentions",
             "\t     --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)",
-            "\t-u,  --urls-resolve           Shorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand",
+            "\t-u,  --urls-resolve           Unshorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand",
+            "\t     --urls-check             Check every single target url (except for twitter.com and youtube.com) and update - implies --urls-resolve",
+            "\t     --urls-check-force       Forcibly checks every single failed (numeric) source and target url and update - implies --urls-check",
             "\t-o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)",
             "\t-l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)",
             "\t-x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files",
@@ -791,10 +803,10 @@ verbose(sprintf("URLs loaded: %d", count($urls)));
 
 // summarise the number of source urls and target urls by host and tidy-up urls
 if (DEBUG && !empty($urls)) {
-    $src_hosts       = [];
-    $target_hosts     = [];
-    $unresolved  = [];
-    $curl_errors = [];
+    $src_hosts    = [];
+    $target_hosts = [];
+    $unresolved   = [];
+    $curl_errors  = [];
     foreach ($urls as $url => $target) {
 
         $u = parse_url($url);
@@ -814,14 +826,20 @@ if (DEBUG && !empty($urls)) {
         }
     }
 
-    $src_hosts = array_count_values($src_hosts);
+    $src_hosts    = array_count_values($src_hosts);
     $target_hosts = array_count_values($target_hosts);
     ksort($target_hosts);
     ksort($unresolved);
     ksort($curl_errors);
 
-    debug('Source URL hosts:', $src_hosts);
-    debug('Target URL hosts:', $target_hosts);
+    debug('All source URL hosts:', $src_hosts);
+
+    foreach ($target_hosts as $host => $count) {
+        if ($count < 25) {
+            unset($target_hosts[$host]);
+        }
+    }
+    debug('Most popular target hosts:', $target_hosts);
     debug('Previous failed cURL targets:', $unresolved);
     debug('Summary failed cURL errors:', $curl_errors);
 
@@ -834,6 +852,7 @@ if (DEBUG && !empty($urls)) {
             }
         }
     }
+
     unset($src_hosts);
     unset($target_hosts);
     unset($unresolved);
@@ -1021,10 +1040,9 @@ if (!empty($tweets) && is_array($tweets)) {
         }
 
         // perform search/replace on 'text'
-        $tweet['text']     = trim(str_replace($search, $replace, $tweet['text']));
+        $tweet['text'] = trim(str_replace($search, $replace, $tweet['text']));
 
         // update users array
-
         // get user from retweeted_status/user_mentions, if exists, add/replace
         // NOTE: this only exists in the old/standard twitter backup files, not in the huge tweet.js file
         // if using therefore with --grailbird-import it will get executed
@@ -1447,16 +1465,32 @@ if ($do['urls-resolve'] && !OFFLINE) {
 
     verbose("Resolving URLs…");
 
-    $urls_checked = 0; // counter for regularly saving url check results
+    $urls_checked   = 0; // counter for regularly saving url check results
+    $urls_remaining = count($urls);
+    $urls           = array_shuffle($urls); // randomize check order
 
     foreach ($urls as $url => $target) {
 
         $urls_checked++; // increment save data counter
+        $urls_remaining--;
+
         $parts = parse_url($url);
         if (false == $parts || count($parts) <= 1 || (array_key_exists('host',
                 $parts) && in_array(strtolower($parts['host']), $hosts_expired))) {
             $urls[$url] = 0;
             continue;
+        }
+
+        // skipping youtube and twitter because in the 1000s
+        if ('twitter.com' === $parts['host' ] || 'www.youtube.com' === $parts['host']) {
+            continue;
+        }
+
+        // force a check!
+        if (!OFFLINE && $do['urls-check-force'] && (empty($target) || is_numeric($target))) {
+            $target = url_resolve($url);
+            $urls[$url] = $target;
+            debug(sprintf("Force checked source URL\n\t%s\n\t%s", $url, $target));
         }
 
         // the target url exists and is a string, check if its a short url
@@ -1469,11 +1503,13 @@ if ($do['urls-resolve'] && !OFFLINE) {
                 $urls[$url] = 0;
             } else if (!in_array(strtolower($parts['host']), $url_shorteners)) {
                 // is not a shortened url, skip
-                if ($url == $target) {
-                    debug(sprintf("Not checking URL\n\t%s", $url));
-                } else {
-                    debug(sprintf("Not checking URL\n\t%s\n\t%s", $url, $target));
-                }
+                /*
+                  if ($url == $target) {
+                  debug(sprintf("Not checking URL\n\t%s", $url));
+                  } else {
+                  debug(sprintf("Not checking URL\n\t%s\n\t%s", $url, $target));
+                  }
+                 */
                 continue;
             } else {
                 // the target url was a shortened url, so find the destination of it
@@ -1514,9 +1550,10 @@ if ($do['urls-resolve'] && !OFFLINE) {
         }
 
         // at this point the target was empty OR numeric
+
         if (in_array($target, $curl_errors_dead)) {
             // will not recheck urls which returned an error code from curl/wget
-            debug(sprintf("Not checking URL\n\t(%d)%s", $url, $target));
+            //debug(sprintf("Not checking URL\n\t(%d)%s", $url, $target));
         } else if (!OFFLINE && !in_array($target, $curl_errors_dead)) {
             // find the target of the source $url
             verbose(sprintf("Checking URL %s", $url));
@@ -1541,6 +1578,8 @@ if ($do['urls-resolve'] && !OFFLINE) {
 
         // save urls every 100 which have been checked online
         if ($urls_checked % $save_every == 0) {
+            debug(sprintf("[%d/%d] URLs checked/remaining.", $urls_checked,
+                    $urls_remaining));
             debug("Saving: $file_urls");
             $save = json_save($file_urls, $urls);
             if (true !== $save) {
@@ -1637,8 +1676,7 @@ if ($do['urls-resolve']) {
                 }
 
                 // add path if not / and no query string
-                if (array_key_exists('path', $t) && !empty($t['path'] && '/' !== $t['path']
-                        && !empty($querysring))) {
+                if (array_key_exists('path', $t) && !empty($t['path'] && !empty($querysring))) {
                     $newtarget .= $t['path'];
                 }
 
@@ -1921,6 +1959,7 @@ if (!empty($tweets) && is_array($tweets)) {
 
     // save updated $urls
     debug("Saving: $file_urls");
+    ksort($urls);
     $save = json_save($file_urls, $urls);
     if (true !== $save) {
         $errors[] = "\nFailed encoding JSON output file: $file_urls\n";
@@ -1929,6 +1968,78 @@ if (!empty($tweets) && is_array($tweets)) {
     }
 }
 
+//-----------------------------------------------------------------------------
+// check all urls
+
+
+if ($do['urls-check']) {
+
+    debug("Performing full destination URLs check (except youtube and twitter!). NOTE: This will only update the 'urls.json' file.");
+
+    // check urls in a random order
+    $urls           = array_shuffle($urls);
+    $urls_checked   = 0; // counter for regularly saving url check results
+    $urls_remaining = count($urls);
+    $urls_changed   = 0;
+    $urls_bad       = 0;
+
+    foreach ($urls as $url => $target) {
+
+        $urls_checked++; // increment save data counter
+        $urls_remaining--; // decrement urls remaining
+
+        if (is_numeric($target) || in_array(strtolower($parts['host']),
+                $url_shorteners)) {
+            continue;
+        }
+
+        // skipping youtube and twitter because in the 1000s
+        $parts = parse_url($target);
+        if (empty($parts) || !array_key_exists('host', $parts) || 'twitter.com' == $parts['host']
+            || 'www.youtube.com' == $parts['host']) {
+            continue;
+        }
+
+        verbose(sprintf("[%06d/%06d %06d %06d] Checking URL:\n\t%s\n\t",
+                $urls_checked, $urls_remaining, $urls_changed, $urls_bad,
+                $target));
+        $result = url_resolve($target);
+        if ($result !== $target) {
+            verbose(sprintf("\nURL updated:\n\t%s\n", $result));
+            // only overwrite target if it is good, do not replace with error code!
+            if (empty($target) || is_numeric($target)) {
+                $urls_bad++;
+                continue;
+            } else {
+                $urls_changed++;
+                $urls[$url] = $result;
+            }
+        }
+
+        if ($urls_checked % $save_every == 0) {
+            debug("Saving: $file_urls");
+            $save = json_save($file_urls, $urls);
+            if (true !== $save) {
+                $errors[] = "\nFailed encoding JSON output file: $file_urls\n";
+                $errors[] = "\nJSON Error: $save\n";
+                goto errors;
+            }
+        }
+    }
+
+    // save updated $urls
+    debug("Saving: $file_urls");
+    ksort($urls);
+    $save = json_save($file_urls, $urls);
+    if (true !== $save) {
+        $errors[] = "\nFailed encoding JSON output file: $file_urls\n";
+        $errors[] = "\nJSON Error: $save\n";
+        goto errors;
+    }
+
+    verbose(sprintf("Finished URL target checking.\n\tURLs checked: %06d\n\tURLs changed:%06d\n\tURLs bad: %06d\n\t\n",
+            $urls_checked, $urls_changed, $urls_bad));
+}
 
 //-----------------------------------------------------------------------------
 // download missing media files
@@ -2179,7 +2290,7 @@ if (!empty($remove_keys)) {
     if (!empty($remove_keys) && is_array($remove_keys)) {
         $remove_keys = array_unique($remove_keys);
         sort($only_keys);
-        $tweets = array_clear($tweets, $remove_keys);
+        $tweets      = array_clear($tweets, $remove_keys);
     }
 }
 
@@ -2618,6 +2729,31 @@ function tweets_count($dir, $filename = 'tweet.js')
 
 
 /**
+ * Shuffle an associative array
+ *
+ * @param  array $array array to shuffle
+ * @return array $array shuffled
+ * @see https://secure.php.net/manual/en/function.shuffle.php
+ */
+function array_shuffle($array)
+{
+    if (empty($array) || !is_array($array)) {
+        return $array;
+    }
+
+    $keys = array_keys($array);
+    shuffle($keys);
+
+    $results = array();
+    foreach ($keys as $key) {
+        $results[$key] = $array[$key];
+    }
+
+    return $results;
+}
+
+
+/**
  * Clear an array of empty values
  *
  * @param  array $keys array keys to explicitly remove regardless
@@ -2845,13 +2981,13 @@ function url_resolve($url, $options = [])
         unset($urls[$url]);
     }
     $i++;
-    $timeout          = !empty($options['timeout']) ? (int) $options['timeout'] : 3;
+    $timeout          = !empty($options['timeout']) ? (int) $options['timeout'] : 6;
     $max_time         = !empty($options['max_time']) ? (int) $options['max_time']
-            : $timeout * 10;
+            : $timeout * 3;
     $timeout          = "--connect-timeout $timeout --max-time $max_time";
-    $user_agent       = ''; //'-A "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36" ';
+    $user_agent       = '-A ' . escapeshellarg('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36');
     $curl_options     = "$user_agent $timeout --ciphers ALL -k";
-    $curl_url_resolve = "curl $curl_options -I -i -Ls -w %{url_effective} -o /dev/null " . escapeshellarg($url);
+    $curl_url_resolve = "$curl $curl_options -I -i -Ls -w %{url_effective} -o /dev/null " . escapeshellarg($url);
     $output           = [];
     $target_url       = exec($curl_url_resolve, $output, $status);
     if ($status !== 0) {
@@ -2863,7 +2999,7 @@ function url_resolve($url, $options = [])
     // same URl, loop!
     if ($target_url == $url) {
         $cmd_wget_spider = sprintf(
-            "$wget --user-agent='' -t 2 -T 5 -v --spider %s",
+            "$wget --user-agent=$user_agent -t 3 -T 5 -v --spider %s",
             escapeshellarg($url)
         );
         // try wget instead

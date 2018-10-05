@@ -1481,7 +1481,7 @@ if ($do['urls-resolve'] && !OFFLINE) {
             continue;
         }
 
-        // skipping youtube and twitter because in the 1000s
+                // skipping youtube and twitter because in the 1000s
         if ('twitter.com' === $parts['host' ] || 'www.youtube.com' === $parts['host']) {
             continue;
         }
@@ -1988,22 +1988,24 @@ if ($do['urls-check']) {
         $urls_checked++; // increment save data counter
         $urls_remaining--; // decrement urls remaining
 
-        if (is_numeric($target) || in_array(strtolower($parts['host']),
-                $url_shorteners)) {
+        if (is_numeric($target)) {
             continue;
         }
 
         // skipping youtube and twitter because in the 1000s
         $parts = parse_url($target);
         if (empty($parts) || !array_key_exists('host', $parts) || 'twitter.com' == $parts['host']
-            || 'www.youtube.com' == $parts['host']) {
+            || 'www.youtube.com' == $parts['host'] || in_array(strtolower($parts['host']),
+                $url_shorteners)) {
             continue;
         }
 
         verbose(sprintf("[%06d/%06d %06d %06d] Checking URL:\n\t%s\n\t",
                 $urls_checked, $urls_remaining, $urls_changed, $urls_bad,
                 $target));
+
         $result = url_resolve($target);
+
         if ($result !== $target) {
             verbose(sprintf("\nURL updated:\n\t%s\n", $result));
             // only overwrite target if it is good, do not replace with error code!

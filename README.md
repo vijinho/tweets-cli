@@ -61,17 +61,18 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
         -i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'
         -a,  --tweets-all             Get all tweets (further operations below will depend on this)
              --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php
-             --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php
+             --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php 
              --no-retweets            Drop re-tweets (RT's)
              --no-mentions            Drop tweets starting with mentions
              --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)
-        -u,  --urls-resolve           Shorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand
-             --urls-check             Check every single target url (except for twitter.com and youtube.com)  and update - implies --urls-resolve
+        -u,  --urls-resolve           Unshorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand
+             --urls-check             Check every single target url (except for twitter.com and youtube.com) and update - implies --urls-resolve
+             --urls-check-force       Forcibly checks every single failed (numeric) source and target url and update - implies --urls-check
         -o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)
         -l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)
         -x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files
              --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!
-             --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys
+        -r,  --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys
         -r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')
         -k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)
              --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php

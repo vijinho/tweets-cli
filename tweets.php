@@ -2030,7 +2030,7 @@ if ($do['urls-check']) {
         if ($result !== $target) {
             verbose(sprintf("\nURL updated:\n\t%s\n", $result));
             // only overwrite target if it is good, do not replace with error code!
-            if (empty($target) || is_numeric($target)) {
+            if (empty($result) || is_numeric($result)) {
                 $urls_bad++;
                 continue;
             } else {

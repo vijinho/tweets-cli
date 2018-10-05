@@ -1120,7 +1120,7 @@ foreach ($users as $screen_name => $user) {
 debug("Saving: $users_filename");
 $save = json_save($users_filename, $users);
 if (true !== $save) {
-    $errors[] = "\nFailed encoding JSON output file: $users_filename\n";
+    $errors[] = "\nFailed encoding JSON output file:\n\t$users_filename\n";
     $errors[] = "\nJSON Error: $save\n";
     goto errors;
 }
@@ -1604,7 +1604,7 @@ if ($do['urls-resolve'] && !OFFLINE) {
             debug("Saving: $file_urls");
             $save = json_save($file_urls, $urls);
             if (true !== $save) {
-                $errors[] = "\nFailed encoding JSON output file: $file_urls\n";
+                $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
                 $errors[] = "\nJSON Error: $save\n";
                 goto errors;
             }
@@ -1617,7 +1617,7 @@ if ($do['urls-resolve'] && !OFFLINE) {
         debug("Saving: $file_urls");
         $save = json_save($file_urls, $urls);
         if (true !== $save) {
-            $errors[] = "\nFailed encoding JSON output file: $file_urls\n";
+            $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
             $errors[] = "\nJSON Error: $save\n";
             goto errors;
         }
@@ -1725,7 +1725,7 @@ if ($do['urls-resolve']) {
     debug("Saving: $file_urls");
     $save = json_save($file_urls, $urls);
     if (true !== $save) {
-        $errors[] = "\nFailed encoding JSON output file: $file_urls\n";
+        $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
         $errors[] = "\nJSON Error: $save\n";
         goto errors;
     }
@@ -1983,7 +1983,7 @@ if (!empty($tweets) && is_array($tweets)) {
     ksort($urls);
     $save = json_save($file_urls, $urls);
     if (true !== $save) {
-        $errors[] = "\nFailed encoding JSON output file: $file_urls\n";
+        $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
         $errors[] = "\nJSON Error: $save\n";
         goto errors;
     }
@@ -2043,7 +2043,7 @@ if ($do['urls-check']) {
             debug("Saving: $file_urls");
             $save = json_save($file_urls, $urls);
             if (true !== $save) {
-                $errors[] = "\nFailed encoding JSON output file: $file_urls\n";
+                $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
                 $errors[] = "\nJSON Error: $save\n";
                 goto errors;
             }
@@ -2055,7 +2055,7 @@ if ($do['urls-check']) {
     ksort($urls);
     $save = json_save($file_urls, $urls);
     if (true !== $save) {
-        $errors[] = "\nFailed encoding JSON output file: $file_urls\n";
+        $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
         $errors[] = "\nJSON Error: $save\n";
         goto errors;
     }
@@ -2131,8 +2131,16 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
     }
     verbose("Profile details loaded:", $profile);
 
+    // create subfolders for grailbird export
+    $path = $grailbird_dir . '/data/js/tweets';
+    if (!file_exists($path) && !mkdir($path, 0777, true)) {
+        $errors[] = "Failed to make grailbird export data folders: \n\t$$path";
+    } else if (!is_dir($path)) {
+        $errors[] = "Grailbird export data folder is not a directory: \n\t$$path";
+    }
+
     // create user_details.js file
-    $filename     = $grailbird_dir . '/user_details.js';
+    $filename     = $grailbird_dir . '/data/js/user_details.js';
     $prepend_text = 'var user_details = ';
     $user_details = [
         "screen_name" => $account['username'],
@@ -2145,7 +2153,7 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
     ];
     $save         = json_save($filename, $user_details, $prepend_text);
     if (true !== $save) {
-        $errors[] = "\nFailed encoding JSON output file: $filename\n";
+        $errors[] = "\nFailed encoding JSON output file:\n\t$filename\n";
         $errors[] = "\nJSON Error: $save\n";
         goto errors;
     } else {
@@ -2165,7 +2173,7 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
 
     // create payload_details.js file
     $tweets_count    = count($tweets);
-    $filename        = $grailbird_dir . '/payload_details.js';
+    $filename        = $grailbird_dir . '/data/js/payload_details.js';
     $prepend_text    = 'var payload_details = ';
     $payload_details = [
         "tweets"     => $tweets_count,
@@ -2174,15 +2182,40 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
     ];
     $save            = json_save($filename, $payload_details, $prepend_text);
     if (true !== $save) {
-        $errors[] = "\nFailed encoding JSON output file: $filename\n";
+        $errors[] = "\nFailed encoding JSON output file:\n\t$filename\n";
         $errors[] = "\nJSON Error: $save\n";
         goto errors;
     } else {
         debug(sprintf("Wrote grailbird payload data file: %s", $filename));
     }
 
+    // create CSV row
+    $csv_filename = $grailbird_dir . '/tweets.csv';
+
+    verbose("Saving grailbird tweets index to CSV filename:\n\t$csv_filename");
+    $fp = fopen($csv_filename, 'w');
+    if (false === $fp) {
+        $errors[] = "Failed to open CSV file: $csv_filename";
+    } else {
+        // write csv header
+        $csv_row = [
+            'tweet_id',
+            'in_reply_to_status_id',
+            'in_reply_to_user_id',
+            'timestamp',
+            'source',
+            'text',
+            'retweeted_status_id',
+            'retweeted_status_user_id',
+            'retweeted_status_timestamp',
+            'expanded_urls'
+        ];
+        fputcsv($fp, to_charset($csv_row));
+    }
+
     // generate the monthly tweets files as an array from $tweets
     $month_files = [];
+
     foreach ($tweets as $tweet_id => $tweet_default) {
 
         $tweet = $tweet_default; // need to modify this to match grailbird files
@@ -2230,6 +2263,47 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
             }
         }
 
+        if (false !== $fp) {
+            // create data for CSV line
+            $csv_row = [
+                'id' => '', // this is not used in csv file, but 'tweet_id' is
+                'tweet_id' => '',
+                'in_reply_to_status_id' => '',
+                'in_reply_to_user_id' => '',
+                'timestamp' => date('Y-m-d h:i:s +0000', $tweet['created_at_unixtime']),
+                'source' => '',
+                'text' => '',
+                'retweeted_status_id' => '',
+                'retweeted_status_user_id' => '',
+                'retweeted_status_timestamp' => '',
+                'expanded_urls' => ''
+            ];
+            $csv_row = array_intersect_key(
+                array_merge($csv_row, $tweet),
+                array_flip(array_keys($csv_row))
+            );
+            $csv_row['tweet_id'] = $csv_row['id']; // tweet_id in csv file
+
+            // create retweet values if present
+            if (!empty($tweet['retweeted_status']) && is_array($tweet['retweeted_status']) && count($tweet['retweeted_status'])) {
+                $rt = $tweet['retweeted_status'];
+                $csv_row['retweeted_status_id'] = $rt['id_str'];
+                $csv_row['retweeted_status_timestamp'] = date('Y-m-d h:i:s +0000', strtotime($rt['created_at']));
+                if (array_key_exists('user', $rt)) {
+                    $csv_cols['retweeted_status_user_id'] = $rt['user']['id_str'];
+                }
+            }
+
+            // extract URLs from tweet
+            if (preg_match_all('/(?P<url>http[s]?:\/\/[^\s]+[^\.\s]+)/i', $tweet['text'],
+                    $matches)) {
+                $csv_row['expanded_urls'] = join(',', $matches['url']);
+            }
+
+            // write data to file
+            fputcsv($fp, to_charset(array_values($csv_row)));
+        }
+
         // remove keys not in grailbord
         foreach (['truncated', 'retweet_count', 'retweeted', 'favorited', 'favorite_count',
         'possibly_sensitive', 'rt',
@@ -2247,6 +2321,11 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
         }
 
         $month_files[$month_file][] = $tweet;
+    }
+
+    if (false !== $fp) {
+        fclose($fp);
+        verbose(sprintf("Wrote grailbird tweets index to CSV filename '%s' (%d bytes)", $csv_filename, filesize($csv_filename)));
     }
 
     // write the monthly tweets array to individual files
@@ -2267,29 +2346,29 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
             "month"       => $month
         ];
         ksort($month_tweets); // to start with current year at top of grailbird app page
-        $filename      = $grailbird_dir . '/' . $yyyymm . '.js';
+        $filename      = $grailbird_dir . '/data/js/tweets/' . $yyyymm . '.js';
         $prepend_text  = 'Grailbird.data.tweets_' . $yyyymm . ' = ' . "\n";
         $save          = json_save($filename, $month_tweets, $prepend_text);
         if (true !== $save) {
-            $errors[] = "\nFailed encoding JSON output file: $filename\n";
+            $errors[] = "\nFailed encoding JSON output file:\n\t$filename\n";
             $errors[] = "\nJSON Error: $save\n";
             goto errors;
         } else {
-            debug(sprintf("Wrote grailbird monthly tweets data file: %s",
+            debug(sprintf("Wrote grailbird monthly tweets data file:\n\t%s",
                     $filename));
         }
     }
 
     // create tweet_index.js file
-    $filename     = $grailbird_dir . '/tweet_index.js';
+    $filename     = $grailbird_dir . '/data/js/tweet_index.js';
     $prepend_text = 'var tweet_index = ';
     $save         = json_save($filename, $tweet_index, $prepend_text);
     if (true !== $save) {
-        $errors[] = "\nFailed encoding JSON output file: $filename\n";
+        $errors[] = "\nFailed encoding JSON output file:\n\t$filename\n";
         $errors[] = "\nJSON Error: $save\n";
         goto errors;
     } else {
-        debug(sprintf("Wrote grailbird tweet index data file: %s", $filename));
+        debug(sprintf("Wrote grailbird tweet index data file:\n\t%s", $filename));
     }
 }
 
@@ -2362,7 +2441,7 @@ unset($urls);
 
 // write tweets array to file by default if no other output specified
 if (empty($output) && !empty($tweets) && is_array($tweets)) {
-    debug('Removing empty values from tweets again…');
+    debug('Removing empty values from tweets…');
     $tweets = array_clear($tweets);
     $output = $tweets;
     unset($tweets);
@@ -2392,7 +2471,7 @@ if (!empty($output)) {
         case 'php':
             $save = serialize_save($file, $output);
             if (true !== $save) {
-                $errors[] = "\nFailed encoding JSON output file: $file\n";
+                $errors[] = "\nFailed encoding JSON output file:\n\t$file\n";
                 goto errors;
             } else {
                 verbose(sprintf("PHP serialized data written to output file:\n\t%s (%d bytes)\n",
@@ -2404,7 +2483,7 @@ if (!empty($output)) {
         case 'json':
             $save = json_save($file, $output);
             if (true !== $save) {
-                $errors[] = "\nFailed encoding JSON output file: $output_filename\n";
+                $errors[] = "\nFailed encoding JSON output file:\n\t$output_filename\n";
                 $errors[] = "\nJSON Error: $save\n";
                 goto errors;
             } else {
@@ -2819,8 +2898,8 @@ function to_charset($data, $to_charset = 'UTF-8', $from_charset = 'auto')
     if (is_numeric($data)) {
         if (is_float($data)) {
             return (float) $data;
-        } else {
-            return (int) $data;
+        } else { // this is intentional because some js has a problem with int
+            return (string) $data;
         }
     } else if (is_string($data)) {
         return mb_convert_encoding($data, $to_charset, $from_charset);

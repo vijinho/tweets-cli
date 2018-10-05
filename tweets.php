@@ -210,7 +210,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\t-l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)",
             "\t-x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files",
             "\t     --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!",
-            "\t-r,  --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys",
+            "\t     --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys",
             "\t-r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')",
             "\t-k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)",
             "\t     --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
@@ -693,12 +693,17 @@ if ($do['grailbird']) {
         $grailbird_dir = $options['grailbird'];
     }
 
-    if (empty($grailbird_dir) || !is_dir($grailbird_dir)) {
+    if (empty($grailbird_dir)) {
+        $grailbird_dir = $output_dir . 'export/grailbird';
+    }
+    if (!file_exists($grailbird_dir)) {
+        mkdir($grailbird_dir, 0777, true);
+    }
+    if (!is_dir($grailbird_dir)) {
         $errors[] = "You must specify a valid grailbird output directory!";
         goto errors;
     }
     $grailbird_dir = realpath($grailbird_dir);
-
     verbose(sprintf("GRAILBIRD OUTPUT DIR: %s", $grailbird_dir));
 }
 
@@ -878,16 +883,16 @@ if (!is_string($users)) {
 // filter tweets on the keys specified on the  command-line
 
 if ($do['keys-required']) {
-    $required_keys = [];
+    $keys_required = [];
     if (!empty($options['keys-required'])) {
-        $required_keys = $options['keys-required'];
+        $keys_required = $options['keys-required'];
     }
 
-    if (!empty($required_keys)) {
-        $required_keys = preg_split("/,/", $required_keys);
-        if (!empty($required_keys)) {
-            $required_keys = array_unique($required_keys);
-            sort($required_keys);
+    if (!empty($keys_required)) {
+        $keys_required = preg_split("/,/", $keys_required);
+        if (!empty($keys_required)) {
+            $keys_required = array_unique($keys_required);
+            sort($keys_required);
         }
     }
 }
@@ -902,19 +907,11 @@ if (!empty($tweets) && is_array($tweets)) {
     foreach ($tweets as $tweet_id => $tweet) {
 
         // must contain all the keys to be included
-        if ($do['keys-required'] && !empty($required_keys) && is_array($required_keys)
-            && count($required_keys)) {
-            $contains_required = true;
-            foreach ($required_keys as $key) {
-                if (!array_key_exists($key, $tweet)) {
-                    $contains_required = false;
-                    break;
-                }
-            }
-            if (!$contains_required) {
-                $tweets_count--;
-                continue;
-            }
+        if ($do['keys-required'] && !empty($keys_required) && is_array($keys_required)
+            && count($keys_required) !== count(array_intersect_key(array_flip($keys_required), $tweet))) {
+            unset($tweets[$tweet_id]);
+            $tweets_count--;
+            continue;
         }
 
         // this situation occurs when importing grailbird js files
@@ -927,6 +924,7 @@ if (!empty($tweets) && is_array($tweets)) {
         $is_rt = 'RT' == substr($tweet['full_text'], 0, 2);
         if (($do['no-retweets'] && $is_rt) ||
             ($do['no-mentions'] && '@' == substr($tweet['full_text'], 0, 1))) {
+            unset($tweets[$tweet_id]);
             $tweets_count--;
             continue;
         }
@@ -946,10 +944,12 @@ if (!empty($tweets) && is_array($tweets)) {
         // skip tweets based on date range
         $unixtime = $tweet['created_at_unixtime'];
         if (!empty($date_from) && $unixtime < $date_from) {
+            unset($tweets[$tweet_id]);
             $tweets_count--;
             continue;
         }
         if (!empty($date_to) && $unixtime > $date_to) {
+            unset($tweets[$tweet_id]);
             $tweets_count--;
             continue;
         }
@@ -957,6 +957,7 @@ if (!empty($tweets) && is_array($tweets)) {
         // filter on regular expression
         if (!empty($regexp)) {
             if (1 !== preg_match($regexp, $tweet['full_text'], $matches)) {
+                unset($tweets[$tweet_id]);
                 $tweets_count--;
                 continue;
             } else if (!empty($regexp_save)) {
@@ -1156,6 +1157,11 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
 
         // for removing links to local media files in tweet text
         $search    = $replace   = [];
+        if (empty($tweet['text'])) {
+            if (!empty($tweet['full_text'])) {
+                $tweet['text'] = $tweet['full_text'];
+            }
+        }
         $full_text = $tweet['text'];
 
         // find the files for the tweet
@@ -2220,6 +2226,10 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
 
         $tweet = $tweet_default; // need to modify this to match grailbird files
 
+        if (!array_key_exists('created_at_unixtime', $tweet)) {
+            $tweet['created_at_unixtime'] = strtotime($tweet['created_at']);
+        }
+
         $tweet['created_at'] = date('Y-m-d h:i:s +0000',
             $tweet['created_at_unixtime']);
         $month_file          = date('Y_m', $tweet['created_at_unixtime']);
@@ -2378,21 +2388,21 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
 // stripping out of the attributes/keys if they were specified
 // on the command-line
 
-$remove_keys = [];
+$keys_remove = [];
 
 if (!empty($options['k'])) {
-    $remove_keys = $options['k'];
+    $keys_remove = $options['k'];
 } elseif (!empty($options['keys-remove'])) {
-    $remove_keys = $options['keys-remove'];
+    $keys_remove = $options['keys-remove'];
 }
 
-if (!empty($remove_keys)) {
-    $remove_keys = preg_split("/,/", $remove_keys);
-    verbose('Removing keys from tweets…', $remove_keys);
-    if (!empty($remove_keys) && is_array($remove_keys)) {
-        $remove_keys = array_unique($remove_keys);
-        sort($only_keys);
-        $tweets      = array_clear($tweets, $remove_keys);
+if (!empty($keys_remove)) {
+    $keys_remove = preg_split("/,/", $keys_remove);
+    verbose('Removing keys from tweets…', $keys_remove);
+    if (!empty($keys_remove) && is_array($keys_remove)) {
+        $keys_remove = array_unique($keys_remove);
+        sort($keys_filter);
+        $tweets      = array_clear($tweets, $keys_remove);
     }
 }
 
@@ -2401,23 +2411,23 @@ if (!empty($remove_keys)) {
 
 if ($do['keys-filter']) {
 
-    $only_keys = [];
+    $keys_filter = [];
     if (!empty($options['s'])) {
-        $only_keys = $options['s'];
+        $keys_filter = $options['s'];
     } elseif (!empty($options['keys-filter'])) {
-        $only_keys = $options['keys-filter'];
+        $keys_filter = $options['keys-filter'];
     }
 
-    if (!empty($only_keys)) {
-        $only_keys = preg_split("/,/", $only_keys);
+    if (!empty($keys_filter)) {
+        $keys_filter = preg_split("/,/", $keys_filter);
 
-        if (!empty($only_keys) && !empty($tweets) && is_array($tweets)) {
-            verbose('Filtering tweets to show only keys…', $only_keys);
-            $only_keys = array_unique($only_keys);
-            sort($only_keys);
+        if (!empty($keys_filter) && !empty($tweets) && is_array($tweets)) {
+            verbose('Filtering tweets to show only keys…', $keys_filter);
+            $keys_filter = array_unique($keys_filter);
+            sort($keys_filter);
             foreach ($tweets as $tweet_id => $tweet) {
                 foreach ($tweet as $k => $v) {
-                    if (!in_array($k, $only_keys)) {
+                    if (!in_array($k, $keys_filter)) {
                         unset($tweet[$k]);
                     }
                 }

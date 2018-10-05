@@ -1474,6 +1474,12 @@ if ($do['urls-resolve'] && !OFFLINE) {
         $urls_checked++; // increment save data counter
         $urls_remaining--;
 
+        // bad URL chars
+        $s = ['…', 'A%E2%80%A6', '%E2%80%A6'];
+        $r = ['', '', ''];
+        $url = str_replace($s, $r, $url);
+        $target = str_replace($s, $r, $target);
+
         $parts = parse_url($url);
         if (false == $parts || count($parts) <= 1 || (array_key_exists('host',
                 $parts) && in_array(strtolower($parts['host']), $hosts_expired))) {

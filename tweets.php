@@ -2988,7 +2988,7 @@ function url_resolve($url, $options = [])
             : $timeout * 3;
     $timeout          = "--connect-timeout $timeout --max-time $max_time";
     $user_agent       = '-A ' . escapeshellarg('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36');
-    $curl_options     = "$user_agent $timeout --ciphers ALL -k";
+    $curl_options     = "$user_agent $timeout --ciphers ALL -k --ssl-no-revoke";
     $curl_url_resolve = "$curl $curl_options -I -i -Ls -w %{url_effective} -o /dev/null " . escapeshellarg($url);
     $output           = [];
     $target_url       = exec($curl_url_resolve, $output, $status);

@@ -72,6 +72,7 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'urls-expand',
     'urls-resolve',
     'urls-check',
+    'urls-check-source',
     'urls-check-force',
     'offline',
     'local',
@@ -108,6 +109,7 @@ foreach ([
  'urls-resolve'            => ['u', 'urls-resolve'],
  'urls-check'              => [null, 'urls-check'],
  'urls-check-force'        => [null, 'urls-check-force'],
+ 'urls-check-source'       => [null, 'urls-check-source'],
  'offline'                 => ['o', 'offline'],
  'local'                   => ['l', 'local'],
  'unlink'                  => ['x', 'delete'],
@@ -121,16 +123,17 @@ foreach ([
 }
 
 if (array_key_exists('debug', $do) && !empty($do['debug'])) {
-    $do['verbose']         = $options['verbose'] = 1;
+    $do['verbose']      = $options['verbose'] = 1;
 }
-if (array_key_exists('urls-check-force', $options)) {
+if (array_key_exists('urls-check-source', $options) || array_key_exists('urls-check-force',
+        $options)) {
     $do['urls-check']      = $options['urls-check'] = 1;
 }
 if (array_key_exists('urls-check', $options)) {
-    $do['urls-resolve']    = $options['urls-resolve'] = 1;
+    $do['urls-resolve']      = $options['urls-resolve'] = 1;
 }
 if (array_key_exists('urls-resolve', $options)) {
-    $do['urls-expand']     = $options['urls-expand'] = 1;
+    $do['urls-expand']      = $options['urls-expand'] = 1;
 }
 if (array_key_exists('list-missing-media', $do) || array_key_exists('organize-media',
         $do)) {
@@ -205,6 +208,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\t     --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)",
             "\t-u,  --urls-resolve           Unshorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand",
             "\t     --urls-check             Check every single target url (except for twitter.com and youtube.com) and update - implies --urls-resolve",
+            "\t     --urls-check-source      Check failed source urls - implies --urls-resolve",
             "\t     --urls-check-force       Forcibly checks every single failed (numeric) source and target url and update - implies --urls-check",
             "\t-o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)",
             "\t-l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)",
@@ -299,7 +303,7 @@ $hosts_expired = [
 // return codes from curl (url_resolve() function below) which indiciate we should not try to resolve a url
 // -22 signifies a wget failure, the rest are from curl
 // https://ec.haxx.se/usingcurl-returns.html
-$curl_errors_dead = [3, 6, 7, 18, 28, 35, 47, 52, 56, -22];
+$curl_errors_dead = [3, 6, 7, 18, 28, 47, 52, 56, -22];
 
 //-----------------------------------------------------------------------------
 // initialise variables
@@ -317,7 +321,6 @@ debug("online_sleep: " . $online_sleep);
 $tweets        = [];
 $tweets_count  = 0;
 $missing_media = []; // missing local media files, [filename => source url]
-
 //-----------------------------------------------------------------------------
 // set the script output format to one of (json, php, text)
 
@@ -1475,7 +1478,7 @@ if ($do['urls-resolve'] && !OFFLINE) {
 
     $urls_checked   = 0; // counter for regularly saving url check results
     $urls_remaining = count($urls);
-    $urls_resolved = 0;
+    $urls_resolved  = 0;
     $urls           = array_shuffle($urls); // randomize check order
 
     foreach ($urls as $url => $target) {
@@ -1483,8 +1486,8 @@ if ($do['urls-resolve'] && !OFFLINE) {
         $urls_checked++; // increment save data counter
         $urls_remaining--;
 
-        debug(sprintf("[%06d/%06d/%06d] URLs checked/remaining/resolved.", $urls_checked,
-                $urls_remaining, $urls_resolved));
+        debug(sprintf("[%06d/%06d/%06d] URLs checked/remaining/resolved.",
+                $urls_checked, $urls_remaining, $urls_resolved));
 
         // save urls every 100 which have been checked online
         if ($urls_checked % $save_every == 0) {
@@ -1518,11 +1521,11 @@ if ($do['urls-resolve'] && !OFFLINE) {
         }
 
         $check_start = time(); // timer
-
         // check source url if target is null or a number OR forced urls check
-        if (!OFFLINE && (empty($target) || (is_numeric($target) && $do['urls-check-force']))) {
+        if (!OFFLINE && (empty($target) || (is_numeric($target) && ($do['urls-check-force']
+            || $do['urls-check-source'])))) {
             debug(sprintf("Checking source URL\n\t%s", $url));
-            $urls[$url]     = url_resolve($url);
+            $urls[$url] = url_resolve($url);
             debug(sprintf("Result:\n\t%s", $urls[$url]));
             if ($target !== $urls[$url]) {
                 $urls_resolved++;
@@ -1560,8 +1563,8 @@ if ($do['urls-resolve'] && !OFFLINE) {
                 verbose(sprintf("Checking short URL\n\t%s\n\t%s", $url, $target));
 
                 // update the target url to the final destination url
-                $newtarget   = url_resolve($target);
-                $urls[$url]  = $newtarget;
+                $newtarget  = url_resolve($target);
+                $urls[$url] = $newtarget;
                 if ($newtarget !== $target) {
                     verbose(sprintf("Resolved short URL\n\t%s\n\t%s\n\t%s",
                             $url, $target, $newtarget));
@@ -1593,7 +1596,7 @@ if ($do['urls-resolve'] && !OFFLINE) {
             // at this point the target was empty OR numeric
             // find the target of the source $url
             verbose(sprintf("Checking URL %s", $url));
-            $u           = url_resolve($url); // resolve $url to find value for $target
+            $u = url_resolve($url); // resolve $url to find value for $target
             if (!empty($url) && is_string($u)) {
                 // we found a url, so set the target in $urls
                 verbose(sprintf("Found URL\n\t%s\n\t%s", $url, $u));
@@ -2022,8 +2025,8 @@ if ($do['urls-check']) {
         // skipping youtube and twitter because in the 1000s
         $parts = parse_url($target);
         if (empty($parts) || !array_key_exists('host', $parts) || 'twitter.com' == $parts['host']
-            || 'www.youtube.com' == $parts['host'] || in_array(strtolower($parts['host']),
-                $url_shorteners)) {
+            || 'www.youtube.com' == $parts['host'] || (in_array(strtolower($parts['host']),
+                $url_shorteners) && !$do['urls-check-force'])) {
             continue;
         }
 
@@ -2060,7 +2063,7 @@ if ($do['urls-check']) {
 
     // save updated $urls
     if (!empty($urls) && is_array($urls) && count($urls)) {
-    debug("Saving: $file_urls");
+        debug("Saving: $file_urls");
         ksort($urls);
         $save = json_save($file_urls, $urls);
         if (true !== $save) {
@@ -2969,7 +2972,7 @@ function json_load_twitter($dir, $filename)
     if (!array_key_exists($filename, $files) || !file_exists($files[$filename])) {
         return [];
     }
-    $data  = to_charset(file_get_contents($files[$filename]));
+    $data = to_charset(file_get_contents($files[$filename]));
 
     // the twitter export file tweet.js begins with:
     // window.YTD.tweet.part0 = [ {
@@ -3086,7 +3089,7 @@ function url_resolve($url, $options = [])
 
     // return codes from curl (url_resolve() function below) which indiciate we should not try to resolve a url
     // -22 signifies a wget failure, the rest are from curl
-    $cmds['curl']['dead_exit_codes'] = [3, 6, 7, 18, 28, 35, 47, 52, 56, -22];
+    $cmds['curl']['dead_exit_codes'] = [3, 6, 7, 18, 28, 47, 52, 56, -22];
 
     static $urls = []; // remember previous urls
     static $i;

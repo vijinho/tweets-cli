@@ -29,10 +29,6 @@ A command-line (CLI) script to batch-process and work with the files unzipped fr
 This is intentionally written as a stand-alone self-contained command-line php script, hacked-together, written in a procedural style.  These are the command-line options available:
 
 ```
-Usage: php resolve.php -u <URL>
-
-        Unshorten a URL, returning the text, CURL error code or -22 (wget failure) if other URL failure
-
 Usage: php tweets.php
 Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified tweet text is a new attribute: text
 (Specifying any other unknown argument options will be ignored.)
@@ -61,18 +57,19 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
         -i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'
         -a,  --tweets-all             Get all tweets (further operations below will depend on this)
              --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php
-             --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php 
+             --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php
              --no-retweets            Drop re-tweets (RT's)
              --no-mentions            Drop tweets starting with mentions
              --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)
         -u,  --urls-resolve           Unshorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand
              --urls-check             Check every single target url (except for twitter.com and youtube.com) and update - implies --urls-resolve
+             --urls-check-source      Check failed source urls - implies --urls-resolve
              --urls-check-force       Forcibly checks every single failed (numeric) source and target url and update - implies --urls-check
         -o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)
         -l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)
         -x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files
              --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!
-        -r,  --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys
+             --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys
         -r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')
         -k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)
              --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php
@@ -216,7 +213,7 @@ This will also make `users.json` and `urls.json` files containing the use and ur
 
 After the previous step, you can make a `tweet.json` (note extension change - by default `tweeta.php` cli creates .json files) file with the un-shortened/resolved URLs:
 
-    `php cli/tweets.php --dir=euromoan --dir-output=euromoan --filename=tweet.json -a -u --debug`
+    `php cli/tweets.php --dir=euromoan --dir-output=euromoan --filename=tweet.json -a -u --urls-check-source --debug`
 
 #### Generate grailbird export data file using data from previous step
 

@@ -306,8 +306,8 @@ $curl_errors_dead = [3, 6, 7, 18, 28, 35, 47, 52, 56, -22];
 
 $errors             = []; // errors to be output if a problem occurred
 $output             = []; // data to be output at the end
-$save_every         = OFFLINE ? 500 : 125; // save results every so often when looping, e.g. urls checked online
-$online_sleep_under = OFFLINE ? 0 : 0.3; // sleep if under this many seconds elapsed performing online operation
+$save_every         = OFFLINE ? 500 : 25; // save results every so often when looping, e.g. urls checked online
+$online_sleep_under = OFFLINE ? 0 : 0.2; // sleep if under this many seconds elapsed performing online operation
 $online_sleep       = OFFLINE ? 0 : 0.1; // time to wait between each online operation
 
 debug("save_every: " . $save_every);
@@ -405,7 +405,7 @@ if (!empty($output_filename)) {
 if ($do['list-users']) {
     $users_filename = empty($output_filename) ? 'users.json' : $output_filename;
 } else {
-    $users_filename = 'users.json';
+    $users_filename = $dir . '/users.json';
 }
 
 //-----------------------------------------------------------------------------
@@ -669,18 +669,16 @@ if ($do['tweets-all'] || $do['list-users']) {
 
     $tweets = json_load_twitter($dir, $tweets_file);
     if (empty($tweets) || is_string($tweets)) {
-        $errors[] = 'No tweets found!';
-        if (is_string($tweets)) {
-            $errors[] = 'JSON Error: ' . $tweets;
-        }
-        goto errors;
+        verbose("No tweets found loading tweets from: $tweets_file");
     }
 
-    $tweets_count = count($tweets);
-    verbose(sprintf("Tweets loaded: %d", $tweets_count));
+    if (empty($tweets)) {
+        $tweets_count = count($tweets);
+        verbose(sprintf("Tweets loaded: %d", $tweets_count));
 
-    verbose("Indexing loaded tweets…");
-    $tweets = array_column($tweets, null, 'id'); // re-index
+        verbose("Indexing loaded tweets…");
+        $tweets = array_column($tweets, null, 'id'); // re-index
+    }
 }
 
 
@@ -799,7 +797,7 @@ if ($do['grailbird-import'] && !empty($grailbird_files) && is_array($grailbird_f
 $file_urls = $dir . '/urls.json';
 $urls      = json_load($file_urls);
 if (!is_string($urls)) {
-    verbose("Loaded previously saved urls from 'urls.json'");
+    verbose(sprintf("Loaded previously saved urls from:\n\t%s", $file_urls));
 } else {
     $errors[] = $urls; // non-fatal so continue
     $urls     = [];
@@ -1120,12 +1118,14 @@ foreach ($users as $screen_name => $user) {
     }
 }
 
-debug("Saving: $users_filename");
-$save = json_save($users_filename, $users);
-if (true !== $save) {
-    $errors[] = "\nFailed encoding JSON output file:\n\t$users_filename\n";
-    $errors[] = "\nJSON Error: $save\n";
-    goto errors;
+if (!empty($users) && is_array($users) && count($users)) {
+    debug("Saving: $users_filename");
+    $save = json_save($users_filename, $users);
+    if (true !== $save) {
+        $errors[] = "\nFailed encoding JSON output file:\n\t$users_filename\n";
+        $errors[] = "\nJSON Error: $save\n";
+        goto errors;
+    }
 }
 
 // go to end and write file if --list-users, or continue processing after
@@ -1475,12 +1475,29 @@ if ($do['urls-resolve'] && !OFFLINE) {
 
     $urls_checked   = 0; // counter for regularly saving url check results
     $urls_remaining = count($urls);
+    $urls_resolved = 0;
     $urls           = array_shuffle($urls); // randomize check order
 
     foreach ($urls as $url => $target) {
 
         $urls_checked++; // increment save data counter
         $urls_remaining--;
+
+        debug(sprintf("[%06d/%06d/%06d] URLs checked/remaining/resolved.", $urls_checked,
+                $urls_remaining, $urls_resolved));
+
+        // save urls every 100 which have been checked online
+        if ($urls_resolved % $save_every == 0) {
+            if (!empty($urls) && is_array($urls) && count($urls)) {
+                debug("Saving: $file_urls");
+                $save = json_save($file_urls, $urls);
+                if (true !== $save) {
+                    $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
+                    $errors[] = "\nJSON Error: $save\n";
+                    goto errors;
+                }
+            }
+        }
 
         // bad URL chars
         $s      = ['…', 'A%E2%80%A6', '%E2%80%A6'];
@@ -1500,37 +1517,41 @@ if ($do['urls-resolve'] && !OFFLINE) {
             continue;
         }
 
-        // force a check!
-        if (!OFFLINE && $do['urls-check-force'] && (empty($target) || is_numeric($target))) {
-            $target     = url_resolve($url);
-            $urls[$url] = $target;
-            debug(sprintf("Force checked source URL\n\t%s\n\t%s", $url, $target));
+        $check_start = time(); // timer
+
+        // check source url if target is null or a number OR forced urls check
+        if (!OFFLINE && (empty($target) || (is_numeric($target) && $do['urls-check-force']))) {
+            debug(sprintf("Checking source URL\n\t%s", $url));
+            $urls[$url]     = url_resolve($url);
+            debug(sprintf("Result:\n\t%s", $urls[$url]));
+            if ($target !== $urls[$url]) {
+                $urls_resolved++;
+            }
+            $target = $urls[$url];
         }
 
         $parts2 = parse_url($target);
 
         // the target url exists and is a string, check if its a short url
-        if (!empty($target) && is_string($target)) {
+        if (!empty($target) && !is_numeric($target) && is_string($target)) {
             $recheck = false;
             if (false === $parts2 || count($parts2) <= 1) {
                 // bad url, so set it to 0, skip
                 verbose(sprintf("Parse issue, skipping url\n\t%s", $url));
                 $urls[$url] = 0;
+                continue;
             } else if (!in_array(strtolower($parts2['host']), $url_shorteners)) {
                 // is not a shortened url, skip
-                /*
                   if ($url == $target) {
-                  debug(sprintf("Not checking URL\n\t%s", $url));
+                    debug(sprintf("Not checking URL\n\t%s", $url));
                   } else {
-                  debug(sprintf("Not checking URL\n\t%s\n\t%s", $url, $target));
+                    debug(sprintf("Not checking URL\n\t%s\n\t%s", $url, $target));
                   }
-                 */
                 continue;
             } else {
                 if ($target === $url) {
                     continue;
                 }
-
                 // check for only changed scheme difference
                 if (array_key_exists('scheme', $parts) && array_key_exists('scheme',
                         $parts2)) {
@@ -1545,12 +1566,12 @@ if ($do['urls-resolve'] && !OFFLINE) {
                 verbose(sprintf("Checking short URL\n\t%s\n\t%s", $url, $target));
 
                 // update the target url to the final destination url
-                $check_start = time(); // timer
                 $newtarget   = url_resolve($target);
                 $urls[$url]  = $newtarget;
                 if ($newtarget !== $target) {
                     verbose(sprintf("Resolved short URL\n\t%s\n\t%s\n\t%s",
                             $url, $target, $newtarget));
+                    $urls_resolved++;
                 }
                 $target = $newtarget;
 
@@ -1566,63 +1587,41 @@ if ($do['urls-resolve'] && !OFFLINE) {
                         // shortened url, resolve again
                         $newtarget  = url_resolve($target);
                         $urls[$url] = $newtarget;
+                        if ($newtarget !== $target) {
+                            $urls_resolved++;
+                        }
                     }
                 }
-
-                // sleep a bit before continuing
-                $check_end = time() - $check_start;
-                if ($check_end < $online_sleep_under) {
-                    debug('Sleep');
-                    sleep($online_sleep);
-                }
             }
-            continue;
         }
 
-        // at this point the target was empty OR numeric
-
-        if (in_array($target, $curl_errors_dead)) {
-            // will not recheck urls which returned an error code from curl/wget
-            //debug(sprintf("Not checking URL\n\t(%d)%s", $url, $target));
-        } else if (!OFFLINE && !in_array($target, $curl_errors_dead)) {
+        if (!OFFLINE && !in_array($target, $curl_errors_dead)) {
+            // at this point the target was empty OR numeric
             // find the target of the source $url
             verbose(sprintf("Checking URL %s", $url));
-            $check_start = time(); // timer
             $u           = url_resolve($url); // resolve $url to find value for $target
             if (!empty($url) && is_string($u)) {
                 // we found a url, so set the target in $urls
                 verbose(sprintf("Found URL\n\t%s\n\t%s", $url, $u));
+                $urls_resolved++;
             } else {
                 // an error occurred resolving the url
                 verbose(sprintf("Failed URL\n\t%s\n\t%s", $url, $u));
             }
             $urls[$url] = $u;
-
-            // sleep a bit before continuing
-            $check_end = time() - $check_start;
-            if ($check_end < $online_sleep_under) {
-                debug('Sleep');
-                sleep($online_sleep);
-            }
         }
 
-        // save urls every 100 which have been checked online
-        if ($urls_checked % $save_every == 0) {
-            debug(sprintf("[%d/%d] URLs checked/remaining.", $urls_checked,
-                    $urls_remaining));
-            debug("Saving: $file_urls");
-            $save = json_save($file_urls, $urls);
-            if (true !== $save) {
-                $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
-                $errors[] = "\nJSON Error: $save\n";
-                goto errors;
-            }
+        // sleep a bit before continuing
+        $check_end = time() - $check_start;
+        if ($check_end < $online_sleep_under) {
+            debug('Sleep');
+            sleep($online_sleep);
         }
     }
 
     // save urls checked
     verbose("Total URLs checked: " . $urls_checked);
-    if ($urls_checked > 0) {
+    if ($urls_checked > 0 && !empty($urls) && is_array($urls) && count($urls)) {
         debug("Saving: $file_urls");
         $save = json_save($file_urls, $urls);
         if (true !== $save) {
@@ -1731,12 +1730,14 @@ if ($do['urls-resolve']) {
 
     // save modified $urls
     unset($https_domains);
-    debug("Saving: $file_urls");
-    $save = json_save($file_urls, $urls);
-    if (true !== $save) {
-        $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
-        $errors[] = "\nJSON Error: $save\n";
-        goto errors;
+    if (!empty($urls) && is_array($urls) && count($urls)) {
+        debug("Saving: $file_urls");
+        $save = json_save($file_urls, $urls);
+        if (true !== $save) {
+            $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
+            $errors[] = "\nJSON Error: $save\n";
+            goto errors;
+        }
     }
 }
 
@@ -1988,13 +1989,15 @@ if (!empty($tweets) && is_array($tweets)) {
     ksort($tweets);
 
     // save updated $urls
-    debug("Saving: $file_urls");
-    ksort($urls);
-    $save = json_save($file_urls, $urls);
-    if (true !== $save) {
-        $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
-        $errors[] = "\nJSON Error: $save\n";
-        goto errors;
+    if (!empty($urls) && is_array($urls) && count($urls)) {
+        debug("Saving: $file_urls");
+        ksort($urls);
+        $save = json_save($file_urls, $urls);
+        if (true !== $save) {
+            $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
+            $errors[] = "\nJSON Error: $save\n";
+            goto errors;
+        }
     }
 }
 
@@ -2049,26 +2052,29 @@ if ($do['urls-check']) {
         }
 
         if ($urls_checked % $save_every == 0) {
-            debug("Saving: $file_urls");
-            $save = json_save($file_urls, $urls);
-            if (true !== $save) {
-                $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
-                $errors[] = "\nJSON Error: $save\n";
-                goto errors;
+            if (!empty($urls) && is_array($urls) && count($urls)) {
+                debug("Saving: $file_urls");
+                $save = json_save($file_urls, $urls);
+                if (true !== $save) {
+                    $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
+                    $errors[] = "\nJSON Error: $save\n";
+                    goto errors;
+                }
             }
         }
     }
 
     // save updated $urls
+    if (!empty($urls) && is_array($urls) && count($urls)) {
     debug("Saving: $file_urls");
-    ksort($urls);
-    $save = json_save($file_urls, $urls);
-    if (true !== $save) {
-        $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
-        $errors[] = "\nJSON Error: $save\n";
-        goto errors;
+        ksort($urls);
+        $save = json_save($file_urls, $urls);
+        if (true !== $save) {
+            $errors[] = "\nFailed encoding JSON output file:\n\t$file_urls\n";
+            $errors[] = "\nJSON Error: $save\n";
+            goto errors;
+        }
     }
-
     verbose(sprintf("Finished URL target checking.\n\tURLs checked: %06d\n\tURLs changed:%06d\n\tURLs bad: %06d\n\t\n",
             $urls_checked, $urls_changed, $urls_bad));
 }
@@ -2734,7 +2740,6 @@ function files_list($dir, $sort = true, $use_cache = true)
         return [];
     }
 
-    unset($files[0]); // first line is blank
     // strip hidden meta files
     foreach ($files as $i => $file) {
         unset($files[$i]);
@@ -2967,6 +2972,9 @@ function json_load($file)
 function json_load_twitter($dir, $filename)
 {
     $files = files_js($dir);
+    if (!array_key_exists($filename, $files) || !file_exists($files[$filename])) {
+        return [];
+    }
     $data  = to_charset(file_get_contents($files[$filename]));
 
     // the twitter export file tweet.js begins with:
@@ -3057,7 +3065,7 @@ function serialize_save($file, $data)
 
 
 /**
- * unshorten a URL/find the target of a URL
+ * resolve a URL/find the target of a URL
  *
  * @param  string  $url     the url to url_resolve
  * @param  array   $options options
@@ -3067,7 +3075,7 @@ function serialize_save($file, $data)
 function url_resolve($url, $options = [])
 {
     if (OFFLINE) {
-        return false;
+        return 0;
     }
 
     $commands = get_commands();
@@ -3098,13 +3106,13 @@ function url_resolve($url, $options = [])
         unset($urls[$url]);
     }
     $i++;
-    $timeout          = !empty($options['timeout']) ? (int) $options['timeout'] : 6;
+    $timeout          = !empty($options['timeout']) ? (int) $options['timeout'] : 3;
     $max_time         = !empty($options['max_time']) ? (int) $options['max_time']
-            : $timeout * 3;
+            : $timeout * 10;
     $timeout          = "--connect-timeout $timeout --max-time $max_time";
-    $user_agent       = '-A ' . escapeshellarg('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36');
+    $user_agent       = ''; //'-A "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36" ';
     $curl_options     = "$user_agent $timeout --ciphers ALL -k";
-    $curl_url_resolve = "$curl $curl_options -I -i -Ls -w %{url_effective} -o /dev/null " . escapeshellarg($url);
+    $curl_url_resolve = "curl $curl_options -I -i -Ls -w %{url_effective} -o /dev/null " . escapeshellarg($url);
     $output           = [];
     $target_url       = exec($curl_url_resolve, $output, $status);
     if ($status !== 0) {
@@ -3116,7 +3124,7 @@ function url_resolve($url, $options = [])
     // same URl, loop!
     if ($target_url == $url) {
         $cmd_wget_spider = sprintf(
-            "$wget --user-agent=$user_agent -t 3 -T 5 -v --spider %s",
+            "$wget --user-agent='' -t 2 -T 5 -v --spider %s",
             escapeshellarg($url)
         );
         // try wget instead

@@ -151,6 +151,78 @@ Export only tweets which have the 'withheld in countries' key to export/grailbir
 - *I have only tested it on MacOS* but it should work under Linux.
 - This script is memory-hungry, I had to increase my limit to 512MB to handle 10 years and over 30,000 tweets.
 
+## Re-constructing the folder structure from a standard (old) twitter year/month file export
+
+Supposing `tweets.php` is in the folder 'cli' and you are running for a user 'euromoan'.
+
+### Make the following folders:
+
+```
+euromoan/www/euromoan - this is the top-level folder of the un-zipped file (containing the twitter index.html file)
+euromoan/profile_media
+euromoan/tweet_media
+euromoan/tweet_files
+```
+
+### Create the following files
+
+In the euromoan folder, copying the data from the account `data/js/user_details.js` and from browsing the twitter page for the user:
+
+`account.js`:
+
+```
+window.YTD.account.part0 = [{
+        "account": {
+            "email": "euromoan@example.com",
+            "createdVia": "web",
+            "username": "euromoan",
+            "accountId": "816715694133964800",
+            "createdAt": "2007-01-01T00:00:00.000Z",
+            "accountDisplayName": "Mario Drago",
+            "timeZone": "Basel, Switzerland"
+        }
+    }]
+```
+
+`profile.js`:
+
+```
+window.YTD.profile.part0 = [{
+        "profile": {
+            "description": {
+                "bio": "Evil banker. #TBTJ untouchable Communist Head of ECB. I do whatever it takes to keep EU masses enslaved, enriching my cronies of the BIS, FSB, G30 etc PARODY!.",
+                "website": "",
+                "location": "Basel, Switzerland"
+            },
+            "avatarMediaUrl": "https://pbs.twimg.com/profile_images/986255258073657350/g8fvWiDX.jpg",
+            "headerMediaUrl": "https://pbs.twimg.com/profile_banners/816715694133964800/1523976777"
+        }
+    }]
+```
+
+### Combine files to make the `tweet.js` file
+
+#### Making a default `tweet.js` file
+
+This will create the `tweet.js` similar to a full twitter backup download zip contains.
+
+    `php cli/tweets.php --dir=euromoan --dir-output=euromoan --grailbird-import=euromoan/www/euromoan/data/js/tweets --filename=tweet.js --debug`
+
+This will also make `users.json` and `urls.json` files containing the use and url information contained therein.
+
+#### Resolve URLs when creating
+
+After the previous step, you can make a `tweet.json` (note extension change - by default `tweeta.php` cli creates .json files) file with the un-shortened/resolved URLs:
+
+    `php cli/tweets.php --dir=euromoan --dir-output=euromoan --filename=tweet.json -a -u --debug`
+
+#### Generate grailbird export data file using data from previous step
+
+This will create the YYYY-MM.js files with the resolved URLs in a folder structure as with the original twitter download in `export/grailbird`.
+
+    `php cli/tweets.php --dir=euromoan --dir-output=euromoan --tweets-file=tweet.json --grailbird=export/grailbird -a -u --debug`
+
+
 ## To Do
 
 - Reduce memory-usage!

@@ -1541,12 +1541,6 @@ if ($do['urls-resolve'] && !OFFLINE) {
                 $urls[$url] = 0;
                 continue;
             } else if (!in_array(strtolower($parts2['host']), $url_shorteners)) {
-                // is not a shortened url, skip
-                  if ($url == $target) {
-                    debug(sprintf("Not checking URL\n\t%s", $url));
-                  } else {
-                    debug(sprintf("Not checking URL\n\t%s\n\t%s", $url, $target));
-                  }
                 continue;
             } else {
                 if ($target === $url) {

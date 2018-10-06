@@ -200,6 +200,8 @@ window.YTD.profile.part0 = [{
     }]
 ```
 
+Save the URL images to files in `profile_media`
+
 ### Combine files to make the `tweet.js` file
 
 #### Making a default `tweet.js` file
@@ -220,7 +222,27 @@ After the previous step, you can make a `tweet.json` (note extension change - by
 
 This will create the YYYY-MM.js files with the resolved URLs in a folder structure as with the original twitter download in `export/grailbird`.
 
-    `php cli/tweets.php --dir=euromoan --dir-output=euromoan --tweets-file=tweet.json --grailbird=export/grailbird -a -u --debug`
+    `php cli/tweets.php --dir=euromoan --dir-output=euromoan --tweets-file=tweet.json --filename=tweet.json -a -u --grailbird=euromoan/export/grailbird --debug`
+
+#### Missing local `tweet_media` files
+
+This will list the local `tweet_media` files that are missing and where they would be downloaded:
+
+    `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -u --debug --list-missing-media --filename=missing.json -l`
+
+To download:
+
+    `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -u --debug --download-missing-media -l `
+
+To organize the `tweet_media` files into subfolders:
+
+    `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -u --debug --organize-media -l`
+
+#### Generate locally viewable offline tweets linked to downloaded files
+
+Files will be exported to `euromoan/export/grailbird` in the correct folder structure to overwrite/replace the original download or use as data files for [@vijinho/tweets-gb](https://github.com/vijinho/tweets-gb)
+
+    `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -u -l --grailbird=euromoan/export/grailbird --debug`
 
 
 ## To Do

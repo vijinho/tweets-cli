@@ -306,7 +306,7 @@ $curl_errors_dead = [3, 6, 7, 18, 28, 35, 47, 52, 56, -22];
 
 $errors             = []; // errors to be output if a problem occurred
 $output             = []; // data to be output at the end
-$save_every         = OFFLINE ? 500 : 25; // save results every so often when looping, e.g. urls checked online
+$save_every         = OFFLINE ? 1000 : 350; // save results every so often when looping, e.g. urls checked online
 $online_sleep_under = OFFLINE ? 0 : 0.2; // sleep if under this many seconds elapsed performing online operation
 $online_sleep       = OFFLINE ? 0 : 0.1; // time to wait between each online operation
 
@@ -1475,7 +1475,7 @@ if ($do['urls-resolve'] && !OFFLINE) {
 
     $urls_checked   = 0; // counter for regularly saving url check results
     $urls_remaining = count($urls);
-    $urls_resolved = 1;
+    $urls_resolved = 0;
     $urls           = array_shuffle($urls); // randomize check order
 
     foreach ($urls as $url => $target) {
@@ -1487,7 +1487,7 @@ if ($do['urls-resolve'] && !OFFLINE) {
                 $urls_remaining, $urls_resolved));
 
         // save urls every 100 which have been checked online
-        if ($urls_resolved % $save_every == 0) {
+        if ($urls_checked % $save_every == 0) {
             if (!empty($urls) && is_array($urls) && count($urls)) {
                 debug("Saving: $file_urls");
                 $save = json_save($file_urls, $urls);

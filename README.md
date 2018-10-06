@@ -244,6 +244,11 @@ Files will be exported to `euromoan/export/grailbird` in the correct folder stru
 
     `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -u -l --grailbird=euromoan/export/grailbird --debug`
 
+#### Fully check all URLs
+
+This will check/update the source and destination URLs (if they have been redirected/changed) unless they are twitter.com or www.youtube.com hosts.
+
+    `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -u --urls-check-force --debug`
 
 ## To Do
 

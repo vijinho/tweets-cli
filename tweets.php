@@ -1475,7 +1475,7 @@ if ($do['urls-resolve'] && !OFFLINE) {
 
     $urls_checked   = 0; // counter for regularly saving url check results
     $urls_remaining = count($urls);
-    $urls_resolved = 0;
+    $urls_resolved = 1;
     $urls           = array_shuffle($urls); // randomize check order
 
     foreach ($urls as $url => $target) {

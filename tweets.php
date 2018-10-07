@@ -364,24 +364,6 @@ if (empty($dircheck) || !is_dir($dircheck)) {
 verbose(sprintf("TWEET DIR: %s", $dir));
 
 //-----------------------------------------------------------------------------
-// directory for outputting script files and data
-
-$output_dir = '';
-if (!empty($options['dir-output'])) {
-    $output_dir = $options['dir-output'];
-} else {
-    $output_dir = $dir;
-}
-
-$dircheck = realpath($output_dir);
-if (empty($dircheck) || !is_dir($dircheck)) {
-    $errors[] = "You must specify a valid output directory!";
-    goto errors;
-}
-
-verbose(sprintf("OUTPUT DIR: %s", $output_dir));
-
-//-----------------------------------------------------------------------------
 // tweets data filename
 
 if (!empty($options['i'])) {
@@ -708,7 +690,7 @@ if ($do['grailbird']) {
     }
 
     if (empty($grailbird_dir)) {
-        $grailbird_dir = $output_dir . 'export/grailbird';
+        $grailbird_dir = $dir . 'export/grailbird';
     }
     if (!file_exists($grailbird_dir)) {
         mkdir($grailbird_dir, 0777, true);
@@ -2489,7 +2471,7 @@ if (!empty($output)) {
     if (empty($output_filename)) {
         $output_filename = 'output.' . OUTPUT_FORMAT;
     }
-    $file = $output_dir . '/' . $output_filename;
+    $file = $dir . '/' . $output_filename;
 
     switch (OUTPUT_FORMAT) {
         case 'txt':

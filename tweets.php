@@ -76,6 +76,7 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'urls-check-force',
     'offline',
     'local',
+    'media-prefix:',
     'delete',
     'dupes',
     'keys-required:',
@@ -112,6 +113,7 @@ foreach ([
  'urls-check-source'       => [null, 'urls-check-source'],
  'offline'                 => ['o', 'offline'],
  'local'                   => ['l', 'local'],
+ 'media-prefix'            => [null, 'media-prefix'],
  'unlink'                  => ['x', 'delete'],
  'dupes'                   => [null, 'dupes'],
  'keys-required'           => [null, 'keys-required'],
@@ -124,6 +126,9 @@ foreach ([
 
 if (array_key_exists('debug', $do) && !empty($do['debug'])) {
     $do['verbose']      = $options['verbose'] = 1;
+}
+if (array_key_exists('media-prefix', $options)) {
+    $do['local']      = $options['local'] = 1;
 }
 if (array_key_exists('list-missing-media', $do) || array_key_exists('organize-media',
         $do)) {
@@ -213,6 +218,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\t     --urls-check-force       Forcibly checks every single failed (numeric) source and target url and update - implies --urls-check",
             "\t-o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)",
             "\t-l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)",
+            "\t     --media-prefix           Prefix to local media folder instead of direct file:// path, e.g. for serving via web and prefixing a URL path, implies --local",
             "\t-x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files",
             "\t     --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!",
             "\t     --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys",
@@ -241,7 +247,8 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "List URLs for which there are missing local media files:\n\tphp tweets.php --list-missing-media --verbose",
             "Download files from URLs for which there are missing local media files:\n\tphp tweets.php -a --download-missing-media --verbose",
             "Organize 'tweet_media' folder into year/month subfolders:\n\tphp tweets-cli/tweets.php --organize-media`",
-            "Export only tweets which have the 'withheld_in_countries' key to export/grailbird folder:\n\tphp tweets-cli/tweets.php -d -a -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'"
+            "Export only tweets which have the 'withheld_in_countries' key to export/grailbird folder:\n\tphp tweets-cli/tweets.php -d -a -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'",
+            "Prefix the local media with to a URL path 'assets':\n\tphp cli/tweets.php --media-prefix='/assets'"
         ]) . "\n";
 
     // goto jump here if there's a problem
@@ -348,8 +355,8 @@ if (!empty($options['dir'])) {
     $dir = $options['dir'];
 }
 
-$dir = realpath($dir);
-if (empty($dir) || !is_dir($dir)) {
+$dircheck = realpath($dir);
+if (empty($dircheck) || !is_dir($dircheck)) {
     $errors[] = "You must specify a valid directory!";
     goto errors;
 }
@@ -366,10 +373,8 @@ if (!empty($options['dir-output'])) {
     $output_dir = $dir;
 }
 
-if (!empty($output_dir)) {
-    $output_dir = realpath($output_dir);
-}
-if (empty($output_dir) || !is_dir($output_dir)) {
+$dircheck = realpath($output_dir);
+if (empty($dircheck) || !is_dir($dircheck)) {
     $errors[] = "You must specify a valid output directory!";
     goto errors;
 }
@@ -401,6 +406,13 @@ if (!empty($options['f'])) {
 
 if (!empty($output_filename)) {
     verbose(sprintf("OUTPUT FILENAME: %s", $output_filename));
+}
+
+//-----------------------------------------------------------------------------
+// local media prefix
+
+if (!empty($options['media-prefix'])) {
+    $media_prefix = $options['media-prefix'];
 }
 
 //-----------------------------------------------------------------------------
@@ -1865,7 +1877,7 @@ if (!empty($tweets) && is_array($tweets)) {
                     }
 
                     $i      = strlen($tweet['text']); // will append to tweet after!
-                    $url    = 'file://' . $path;
+                    $url    = empty($media_prefix) ? 'file://' . realpath($path) : $media_prefix . '/' . substr($path, strlen($dir) + 1);
                     $entity = array_replace_recursive($entity,
                         [
                         'url'             => '',

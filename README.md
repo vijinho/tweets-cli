@@ -29,10 +29,6 @@ A command-line (CLI) script to batch-process and work with the files unzipped fr
 This is intentionally written as a stand-alone self-contained command-line php script, hacked-together, written in a procedural style.  These are the command-line options available:
 
 ```
-Usage: php tweets.php
-Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified tweet text is a new attribute: text
-(Specifying any other unknown argument options will be ignored.)
-
 -h,  --help                   Display this help and exit
 -v,  --verbose                Run in verbose mode
 -d,  --debug                  Run in debug mode (implies also -v, --verbose)
@@ -41,8 +37,10 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
      --dir-output={.}         Directory to output files in (default to -dir above)
      --format={json}          Output format for script data: txt|php|json (default)
 -f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'
--g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir
      --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.
+-g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir
+     --grailbird-media        Copy local media files to grailbird folder, using same file path
+     --media-prefix           Prefix to local media folder instead of direct file:// path, e.g. '/' if media folders are to be replicated under webroot for serving via web and prefixing a URL path, implies --local
      --list                   Only list all files in export folder and halt - filename
      --list-js                Only List all javascript files in export folder and halt
      --list-images            Only list all image files in export folder and halt
@@ -67,7 +65,6 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
      --urls-check-force       Forcibly checks every single failed (numeric) source and target url and update - implies --urls-check
 -o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)
 -l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)
-     --media-prefix           Prefix to local media folder instead of direct file:// path, e.g. for serving via web and prefixing a URL path, implies --local
 -x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files
      --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!
      --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys
@@ -75,7 +72,7 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
 -k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)
      --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php
      --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given
-```
+ ```
 
 ## Usage Examples:
 
@@ -250,6 +247,21 @@ Files will be exported to `euromoan/export/grailbird` in the correct folder stru
 This will check/update the source and destination URLs (if they have been redirected/changed) unless they are twitter.com or www.youtube.com hosts.
 
     `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -u --urls-check-force --debug`
+
+#### Exporting tweets and media files along with (grailbird) data for web browsing:
+
+Assuming your target data grailbird folder (containing files from [tweets-gb](https://github.com/vijinho/tweets-gb)) is in `euromoan/www/euromoan` and that `euromoan/www` is the webroot.
+
+#### Export tweets, with media files to web-viewable folder
+
+This will process tweets in `euromoan`, exporting data and media files to `euromoan/www/euromoan` and the media file URLs will be prefixed with `/euromoan/` such that browsing from the webroot `euromoan/www` and starting a webserver there (with php) http://127.0.0.1:9012 will reference the local files under the webroot path `/euromoan/path/to/file`
+
+```
+$ php cli/tweets.php --dir=euromoan --grailbird=euromoan/www/euromoan/ --grailbird-media  --media-prefix='/euromoan/' --debug
+$ cd euromoan/www
+$ php -S 127.0.0.1:9012
+```
+
 
 ## To Do
 

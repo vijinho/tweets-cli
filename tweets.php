@@ -49,6 +49,7 @@ $options = getopt("hvdtf:g:i:auolxr:k:",
     'format:',
     'filename:',
     'grailbird:',
+    'grailbird-media',
     'grailbird-import:',
     'list',
     'list-js',
@@ -91,6 +92,7 @@ foreach ([
  'debug'                   => ['d', 'debug'],
  'test'                    => ['t', 'test'],
  'grailbird'               => ['g', 'grailbird'],
+ 'grailbird-media'         => [null, 'grailbird-media'],
  'grailbird-import'        => [null, 'grailbird-import'],
  'list'                    => [null, 'list'],
  'list-js'                 => [null, 'list-js'],
@@ -192,8 +194,10 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\t     --dir-output={.}         Directory to output files in (default to -dir above)",
             "\t     --format={json}          Output format for script data: txt|php|json (default)",
             "\t-f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'",
-            "\t-g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir",
             "\t     --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.",
+            "\t-g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir",
+            "\t     --grailbird-media        Copy local media files to grailbird folder, using same file path",
+            "\t     --media-prefix           Prefix to local media folder instead of direct file:// path, e.g. '/' if media folders are to be replicated under webroot for serving via web and prefixing a URL path, implies --local",
             "\t     --list                   Only list all files in export folder and halt - filename",
             "\t     --list-js                Only List all javascript files in export folder and halt",
             "\t     --list-images            Only list all image files in export folder and halt",
@@ -218,7 +222,6 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\t     --urls-check-force       Forcibly checks every single failed (numeric) source and target url and update - implies --urls-check",
             "\t-o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)",
             "\t-l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)",
-            "\t     --media-prefix           Prefix to local media folder instead of direct file:// path, e.g. for serving via web and prefixing a URL path, implies --local",
             "\t-x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files",
             "\t     --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!",
             "\t     --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys",
@@ -227,7 +230,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\t     --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
             "\t     --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given",
             "\nExamples:",
-            "Report duplicate tweet media files and output to 'dupes.json':\n\tphp tweets-cli/tweets.php -fdupes.json --dupes",
+            "Report duplicate tweet media files and output to 'dupes.json':\n\tphp tweets-tweets.php -fdupes.json --dupes",
             "Show total tweets in tweets file:\n\tphp tweets.php --tweets-count --verbose",
             "Write all users mentioned in tweets to file 'users.json':\n\tphp tweets.php --list-users --verbose",
             "Show javascript files in backup folder:\n\tphp tweets.php --list-js --verbose",
@@ -240,15 +243,16 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --grailbird=grailbird",
             "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --grailbird=grailbird",
             "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird",
-            "Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':\n\tphp tweets-cli/tweets.php --delete --dupes",
+            "Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':\n\tphp tweets-tweets.php --delete --dupes",
             "Extract the first couple of words of the tweet and name the saved regexp 'words':\n\ttweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words",
             "Import grailbird files from 'import/data/js/tweets':\n\tphp tweets.php --grailbird-import=import/data/js/tweets --verbose",
-            "Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:\n\tphp tweets-cli/tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose",
+            "Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:\n\tphp tweets-tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose",
             "List URLs for which there are missing local media files:\n\tphp tweets.php --list-missing-media --verbose",
             "Download files from URLs for which there are missing local media files:\n\tphp tweets.php -a --download-missing-media --verbose",
-            "Organize 'tweet_media' folder into year/month subfolders:\n\tphp tweets-cli/tweets.php --organize-media`",
-            "Export only tweets which have the 'withheld_in_countries' key to export/grailbird folder:\n\tphp tweets-cli/tweets.php -d -a -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'",
-            "Prefix the local media with to a URL path 'assets':\n\tphp cli/tweets.php --media-prefix='/assets'"
+            "Organize 'tweet_media' folder into year/month subfolders:\n\tphp tweets-tweets.php --organize-media`",
+            "Export only tweets which have the 'withheld_in_countries' key to export/grailbird folder:\n\tphp tweets-tweets.php -d -a -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'",
+            "Prefix the local media with to a URL path 'assets':\n\tphp tweets.php --media-prefix='/assets'",
+            "Export tweets with local media files to web folder 'euromoan/www/euromoan' with media files under URL path '/euromoan/': php cli/tweets.php --dir=euromoan --grailbird=euromoan/www/euromoan/ --grailbird-media  --media-prefix='/euromoan/'",
         ]) . "\n";
 
     // goto jump here if there's a problem
@@ -354,7 +358,6 @@ $dir = '';
 if (!empty($options['dir'])) {
     $dir = $options['dir'];
 }
-
 $dircheck = realpath($dir);
 if (empty($dircheck) || !is_dir($dircheck)) {
     $errors[] = "You must specify a valid directory!";
@@ -1859,7 +1862,7 @@ if (!empty($tweets) && is_array($tweets)) {
                     }
 
                     $i      = strlen($tweet['text']); // will append to tweet after!
-                    $url    = empty($media_prefix) ? 'file://' . realpath($path) : $media_prefix . '/' . substr($path, strlen($dir) + 1);
+                    $url    = empty($media_prefix) ? 'file://' . realpath($path) : str_replace('//', '/', $media_prefix . substr($path, strlen($dir) + 1));
                     $entity = array_replace_recursive($entity,
                         [
                         'url'             => '',
@@ -2337,6 +2340,43 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
             }
         }
 
+        // copy files to target
+        if ($do['grailbird-media']) {
+            foreach (['videos', 'files', 'images'] as $type) {
+                if (!array_key_exists($type, $tweet) || empty($tweet[$type])) {
+                    continue;
+                }
+                foreach ($tweet[$type] as $filename => $from) {
+                    if (!file_exists($from)) {
+                        $errors[] = "Source file does not exist $from";
+                        continue;
+                    }
+                    // remove source dir path, check it does not match the media prefix
+                    if ($dir !== $media_prefix) {
+                        $to = $grailbird_dir . '/' . str_replace("$dir/", '', $from);
+                    } else {
+                        $to = $grailbird_dir . '/' . $media_prefix . '/' . str_replace("$dir/", '', $from);
+                    }
+                    $to = str_replace('//' ,'', $to);
+                    $i = strrpos($to, '/');
+                    if (false !== $i) {
+                        $target_dir = substr($to, 0, $i);
+                        if (!is_dir($target_dir)) {
+                            mkdir($target_dir, 0777, true);
+                        }
+                    }
+                    if (file_exists($to)) {
+                        continue;
+                    }
+                    debug("Copying media file to grailbird folder:\n\t$from\n\t$to");
+                    if (!copy($from, $to)) {
+                        $errors[] = "Error copying $from => $to";
+                    }
+                }
+                // do not store local filenames in tweet
+                unset($tweet[$type]);
+            }
+        }
         $month_files[$month_file][] = $tweet;
     }
 
@@ -2352,7 +2392,6 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
     krsort($month_files);
     $tweet_index = []; // for tweet_index.js file
     foreach ($month_files as $yyyymm => $month_tweets) {
-        unset($month_files[$yyyymm]);
         $year          = (int) substr($yyyymm, 0, 4);
         $month         = (int) substr($yyyymm, 5);
         $tweet_index[] = [
@@ -2375,6 +2414,7 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
             debug(sprintf("Wrote grailbird monthly tweets data file:\n\t%s",
                     $filename));
         }
+        unset($month_files[$yyyymm]);
     }
 
     // create tweet_index.js file

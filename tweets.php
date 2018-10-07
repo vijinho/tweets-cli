@@ -125,6 +125,11 @@ foreach ([
 if (array_key_exists('debug', $do) && !empty($do['debug'])) {
     $do['verbose']      = $options['verbose'] = 1;
 }
+if (array_key_exists('list-missing-media', $do) || array_key_exists('organize-media',
+        $do)) {
+    $do['tweets-all']      = $options['tweets-all'] = 1;
+    $do['local'] = $options['local'] = 1;
+}
 if (array_key_exists('urls-check-source', $options) || array_key_exists('urls-check-force',
         $options)) {
     $do['urls-check']      = $options['urls-check'] = 1;
@@ -134,10 +139,6 @@ if (array_key_exists('urls-check', $options)) {
 }
 if (array_key_exists('urls-resolve', $options)) {
     $do['urls-expand']      = $options['urls-expand'] = 1;
-}
-if (array_key_exists('list-missing-media', $do) || array_key_exists('organize-media',
-        $do)) {
-    $do['tweets-all']      = $options['tweets-all'] = 1;
 }
 ksort($do);
 
@@ -684,7 +685,6 @@ if ($do['tweets-all'] || $do['list-users']) {
     }
 }
 
-
 //-----------------------------------------------------------------------------
 // directory for grailbird output
 
@@ -850,12 +850,11 @@ if (DEBUG && !empty($urls)) {
     debug('Previous failed cURL targets:', $unresolved);
     debug('Summary failed cURL errors:', $curl_errors);
 
-    debug("Unresolved short URL TARGET hosts and count of same short URL SOURCE hosts:");
     foreach ($target_hosts as $host => $count) {
         if (in_array($host, $url_shorteners)) {
-            debug(sprintf("TARGET: $host (%d)", $count));
+            debug(sprintf("Unresolved short URL TARGET: $host (%d)", $count));
             if (array_key_exists($host, $src_hosts)) {
-                debug(sprintf("SOURCE: $host (%d)", $src_hosts[$host]));
+                debug(sprintf("Resolved short URL  SOURCE: $host (%d)", $src_hosts[$host]));
             }
         }
     }
@@ -1155,8 +1154,6 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
 
     // detect the locally saved twitter media files
     $to_delete     = []; // files to delete
-    $missing_media = []; // missing local media files, [filename => source url]
-
 
     foreach ($tweets as $tweet_id => $tweet) {
 
@@ -1905,6 +1902,8 @@ if (!empty($tweets) && is_array($tweets)) {
                     debug("Failed searching text for URL:", $tweet);
                 }
                 $host = $parts['host'];
+
+                // create the display url
                 if (0 === strpos($host, 'www.')) {
                     $host = substr($host, 4);
                 } else if (0 === strpos($host, 'm.')) {
@@ -1917,6 +1916,8 @@ if (!empty($tweets) && is_array($tweets)) {
                 } else {
                     $display_url = '(' . sprintf("%s%s", $host, $parts['path']) . ')';
                 }
+
+                // set the entity urls
                 $tweet_urls[] = [
                     "url"          => $url,
                     "expanded_url" => $url,
@@ -1999,8 +2000,17 @@ if (!empty($tweets) && is_array($tweets)) {
 }
 
 //-----------------------------------------------------------------------------
-// check all urls
+// show missing media files if --missing-media specified, and finish
+if ($do['list-missing-media']) {
+    if (0 === count($missing_media)) {
+        verbose("No missing media files.");
+    }
+    $output = $missing_media;
+    goto output;
+}
 
+//-----------------------------------------------------------------------------
+// check all urls
 
 if ($do['urls-check']) {
 
@@ -2078,11 +2088,7 @@ if ($do['urls-check']) {
 
 //-----------------------------------------------------------------------------
 // download missing media files
-// show missing media files if --missing-media specified, and finish
-if ($do['list-missing-media']) {
-    $output = $missing_media;
-    goto output;
-}
+
 
 if ($do['download-missing-media'] || $do['download-profile-images']) {
     if (!empty($missing_media)) {
@@ -3298,4 +3304,3 @@ function twitpic_download($url, $path, $mime_type = 'image/jpeg')
 
     return true;
 }
-

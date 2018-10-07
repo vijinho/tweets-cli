@@ -1186,15 +1186,15 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
                     $found = false; // found local file
                     foreach ($search_files as $file) {
                         if (array_key_exists($file, $images)) {
-                            $tweet['images'][$file] = realpath($images[$file]);
+                            $tweet['images'][$file] = $images[$file];
                             $found                  = true;
                             break;
                         } else if (array_key_exists($file, $videos)) {
-                            $tweet['videos'][$file] = realpath($videos[$file]);
+                            $tweet['videos'][$file] = $videos[$file];
                             $found                  = true;
                             break;
                         } else if (array_key_exists($file, $files)) {
-                            $tweet['files'][$file] = realpath($files[$file]);
+                            $tweet['files'][$file] = $files[$file];
                             $found                 = true;
                             break;
                         }
@@ -1246,7 +1246,7 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
                             if (array_key_exists($filename, $videos)) {
                                 $found                       = true;
                                 //debug("Found video: $filename");
-                                $tweet['videos'][$filename]  = realpath($videos[$filename]);
+                                $tweet['videos'][$filename]  = $videos[$filename];
                                 $bitrates[$video['bitrate']] = $filename;
                             } else {
                                 $filename = substr($filename, 0,
@@ -1254,7 +1254,7 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
                                 if (array_key_exists($filename, $videos)) {
                                     $found                       = true;
                                     //debug("Found video 2: $filename");
-                                    $tweet['videos'][$filename]  = realpath($videos[$filename]);
+                                    $tweet['videos'][$filename]  = $videos[$filename];
                                     $bitrates[$video['bitrate']] = $filename;
                                 }
                             }

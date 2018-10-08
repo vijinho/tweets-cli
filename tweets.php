@@ -135,7 +135,7 @@ if (array_key_exists('media-prefix', $options)) {
 if (array_key_exists('list-missing-media', $do) || array_key_exists('organize-media',
         $do)) {
     $do['tweets-all']      = $options['tweets-all'] = 1;
-    $do['local'] = $options['local'] = 1;
+    $do['local']           = $options['local']      = 1;
 }
 if (array_key_exists('urls-check-source', $options) || array_key_exists('urls-check-force',
         $options)) {
@@ -230,29 +230,29 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\t     --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
             "\t     --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given",
             "\nExamples:",
-            "Report duplicate tweet media files and output to 'dupes.json':\n\tphp tweets-tweets.php -fdupes.json --dupes",
-            "Show total tweets in tweets file:\n\tphp tweets.php --tweets-count --verbose",
-            "Write all users mentioned in tweets to file 'users.json':\n\tphp tweets.php --list-users --verbose",
-            "Show javascript files in backup folder:\n\tphp tweets.php --list-js --verbose",
-            "Resolve all URLs in 'tweet.js' file, writing output to 'tweet.json':\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json",
-            "Resolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json --grailbird=grailbird",
-            "Get tweets, only id, created and text keys:\n\tphp tweets.php -v -a -o -u --keys-filter=id,created_at,text",
-            "Get tweets from 1 Jan 2017 to 'last friday':\n\tphp tweets.php -v -a -o -u --date-from '2017-01-01' --date-to='last friday'",
-            "Filter tweet text on word 'hegemony' since last year\n\t php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony",
-            "Generate grailbird files with expanded/resolved URLs:\n\tphp tweets.php --tweets-all --verbose --urls-expand --urls-resolve --grailbird=grailbird",
-            "Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --grailbird=grailbird",
-            "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --grailbird=grailbird",
-            "Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird",
-            "Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':\n\tphp tweets-tweets.php --delete --dupes",
-            "Extract the first couple of words of the tweet and name the saved regexp 'words':\n\ttweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words",
-            "Import grailbird files from 'import/data/js/tweets':\n\tphp tweets.php --grailbird-import=import/data/js/tweets --verbose",
-            "Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:\n\tphp tweets-tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose",
-            "List URLs for which there are missing local media files:\n\tphp tweets.php --list-missing-media --verbose",
-            "Download files from URLs for which there are missing local media files:\n\tphp tweets.php -a --download-missing-media --verbose",
-            "Organize 'tweet_media' folder into year/month subfolders:\n\tphp tweets-tweets.php --organize-media`",
-            "Export only tweets which have the 'withheld_in_countries' key to export/grailbird folder:\n\tphp tweets-tweets.php -d -a -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'",
-            "Prefix the local media with to a URL path 'assets':\n\tphp tweets.php --media-prefix='/assets'",
-            "Export tweets with local media files to web folder 'euromoan/www/euromoan' with media files under URL path '/euromoan/': php cli/tweets.php --dir=euromoan --grailbird=euromoan/www/euromoan/ --grailbird-media  --media-prefix='/euromoan/'",
+            "\nReport duplicate tweet media files and output to 'dupes.json':\n\n\tphp tweets-tweets.php -fdupes.json --dupes",
+            "\nShow total tweets in tweets file:\n\n\tphp tweets.php --tweets-count --verbose",
+            "\nWrite all users mentioned in tweets to file 'users.json':\n\n\tphp tweets.php --list-users --verbose",
+            "\nShow javascript files in backup folder:\n\n\tphp tweets.php --list-js --verbose",
+            "\nResolve all URLs in 'tweet.js' file, writing output to 'tweet.json':\n\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json",
+            "\nResolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':\n\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json --grailbird=grailbird",
+            "\nGet tweets, only id, created and text keys:\n\n\tphp tweets.php -v -a -o -u --keys-filter=id,created_at,text",
+            "\nGet tweets from 1 Jan 2017 to 'last friday':\n\n\tphp tweets.php -v -a -o -u --date-from '2017-01-01' --date-to='last friday'",
+            "\nFilter tweet text on word 'hegemony' since last year:\n\n\t php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony",
+            "\nGenerate grailbird files with expanded/resolved URLs:\n\n\tphp tweets.php --tweets-all --verbose --urls-expand --urls-resolve --grailbird=grailbird",
+            "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:\n\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --grailbird=grailbird",
+            "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:\n\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --grailbird=grailbird",
+            "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:\n\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird",
+            "\nDelete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':\n\n\tphp tweets-tweets.php --delete --dupes",
+            "\nExtract the first couple of words of the tweet and name the saved regexp 'words':\n\n\ttweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words",
+            "\nImport grailbird files from 'import/data/js/tweets':\n\n\tphp tweets.php --grailbird-import=import/data/js/tweets --verbose",
+            "\nImport and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:\n\n\tphp tweets-tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose",
+            "\nList URLs for which there are missing local media files:\n\n\tphp tweets.php --list-missing-media --verbose",
+            "\nDownload files from URLs for which there are missing local media files:\n\n\tphp tweets.php -a --download-missing-media --verbose",
+            "\nOrganize 'tweet_media' folder into year/month subfolders:\n\n\tphp tweets-tweets.php --organize-media",
+            "\nExport only tweets which have the 'withheld_in_countries' key to export/grailbird folder:\n\n\tphp tweets-tweets.php -d -a -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'",
+            "\nPrefix the local media with to a URL path 'assets':\n\n\tphp tweets.php --media-prefix='/assets'",
+            "\nExport tweets with local media files to web folder 'euromoan/www/euromoan' with media files under URL path '/euromoan/':\n\n\tphp cli/tweets.php --dir=euromoan --grailbird=euromoan/www/euromoan/ --grailbird-media  --media-prefix='/euromoan/'",
         ]) . "\n";
 
     // goto jump here if there's a problem
@@ -769,6 +769,8 @@ if ($do['grailbird-import'] && !empty($grailbird_files) && is_array($grailbird_f
         // merge each tweet
         foreach ($data as $tweet_id => $tweet) {
 
+            unset($data[$tweet_id]);
+
             // didn't exist, add to $tweets and continue
             if (!array_key_exists($tweet_id, $tweets)) {
                 if ($do['tweets-all']) {
@@ -784,10 +786,22 @@ if ($do['grailbird-import'] && !empty($grailbird_files) && is_array($grailbird_f
             // already in $tweets, merge it
             $tweets[$tweet_id] = array_replace_recursive($tweets[$tweet_id],
                 $tweet);
+
+            // we need to remove the 'retweeted_status' entry to the top level to match 'tweet.js'
+            if (array_key_exists('retweeted_status', $tweet)) {
+                $tweet_rt = $tweet['retweeted_status'];
+                $tweet_rt['text'] = sprintf('RT @%s: %s', $tweet_rt['user']['screen_name'], $tweet_rt['text']);
+                if (!array_key_exists($tweet_rt['id'], $tweets)) {
+                    $tweets[$tweet_rt['id']] = $tweet_rt;
+                } else {
+                    $tweets[$tweet_rt['id']] = array_replace_recursive($tweets[$tweet_rt['id']],
+                        $tweet_rt);
+                }
+                unset($tweet['retweeted_status']);
+            }
         }
     }
-
-    unset($data);
+    $tweets = array_column($tweets, null, 'id'); // re-index
 }
 
 
@@ -851,7 +865,8 @@ if (DEBUG && !empty($urls)) {
         if (in_array($host, $url_shorteners)) {
             debug(sprintf("Unresolved short URL TARGET: $host (%d)", $count));
             if (array_key_exists($host, $src_hosts)) {
-                debug(sprintf("Resolved short URL  SOURCE: $host (%d)", $src_hosts[$host]));
+                debug(sprintf("Resolved short URL  SOURCE: $host (%d)",
+                        $src_hosts[$host]));
             }
         }
     }
@@ -1045,6 +1060,7 @@ if (!empty($tweets) && is_array($tweets)) {
         // update users array
         // get user from retweeted_status/user_mentions, if exists, add/replace
         // NOTE: this only exists in the old/standard twitter backup files, not in the huge tweet.js file
+        // where the retweeted_status tweet is actually stored at the top-level
         // if using therefore with --grailbird-import it will get executed
         if (array_key_exists('retweeted_status', $tweet)) {
             $user        = $tweet['retweeted_status']['user'];
@@ -1150,7 +1166,7 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
     verbose("Searching tweets for media files...");
 
     // detect the locally saved twitter media files
-    $to_delete     = []; // files to delete
+    $to_delete = []; // files to delete
 
     foreach ($tweets as $tweet_id => $tweet) {
 
@@ -1165,8 +1181,7 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
 
         // find the files for the tweet
         if (!empty($tweet['entities']['media'])) {
-            $extended_entities = empty($tweet['extended_entities']['media']) ? [
-                ] : $tweet['extended_entities']['media'];
+            $extended_entities = empty($tweet['extended_entities']['media']) ? $tweet['entities']['media'] : $tweet['extended_entities']['media'];
             foreach ([$tweet['entities']['media'], $extended_entities] as
                     $entities) {
                 if (empty($entities)) {
@@ -1576,7 +1591,11 @@ if ($do['urls-resolve'] && !OFFLINE) {
                     } else if (in_array(strtolower($parts['host']),
                             $url_shorteners)) {
                         // shortened url, resolve again
-                        $newtarget  = url_resolve($target);
+                        if (!array_key_exists($target, $urls) || is_numeric($urls[$target])) {
+                            $newtarget  = url_resolve($target);
+                        } else {
+                            $newtarget = $urls[$url];
+                        }
                         $urls[$url] = $newtarget;
                         if ($newtarget !== $target) {
                             $urls_resolved++;
@@ -1590,7 +1609,13 @@ if ($do['urls-resolve'] && !OFFLINE) {
             // at this point the target was empty OR numeric
             // find the target of the source $url
             verbose(sprintf("Checking URL %s", $url));
-            $u = url_resolve($url); // resolve $url to find value for $target
+
+            if (!array_key_exists($url, $urls) || is_numeric($urls[$url])) {
+                $u = url_resolve($url); // resolve $url to find value for $target
+            } else {
+                $u = $urls[$url];
+            }
+
             if (!empty($url) && is_string($u)) {
                 // we found a url, so set the target in $urls
                 verbose(sprintf("Found URL\n\t%s\n\t%s", $url, $u));
@@ -1749,7 +1774,6 @@ if (!empty($tweets) && is_array($tweets)) {
         ) {
             // check each url
             foreach ($matches['url'] as $url) {
-
                 // slip malformed urls
                 $parts = parse_url($url);
                 if (false === $parts || count($parts) <= 1 || empty($parts['host'])) {
@@ -1787,7 +1811,7 @@ if (!empty($tweets) && is_array($tweets)) {
                 $i                = stripos($tweet['text'], $hashtag);
                 $tweet_hashtags[] = [
                     "text"    => substr($hashtag, 1),
-                    "indices" => [$i, $i + strlen($hashtag)]
+                    "indices" => [$i, $i + strlen($hashtag) + 1],
                 ];
             }
         }
@@ -1803,8 +1827,7 @@ if (!empty($tweets) && is_array($tweets)) {
                     unset($tweet['entities']['user_mentions'][$e]);
                     continue;
                 }
-                $entity['indices']                      = [$i, strlen($screen_name)
-                    + 4];
+                $entity['indices'] = [$i, $i + strlen($screen_name) + 2];
                 $tweet['entities']['user_mentions'][$e] = $entity;
             }
         }
@@ -1816,7 +1839,7 @@ if (!empty($tweets) && is_array($tweets)) {
             $tweet['entities']['media']          = empty($tweet['entities']['media'])
                     ? [] : $tweet['entities']['media'];
             $tweet['extended_entities']['media'] = empty($tweet['extended_entities']['media'])
-                    ? [] : $tweet['extended_entities']['media'];
+                    ? $tweet['entities']['media'] : $tweet['extended_entities']['media'];
 
             foreach ([$tweet['entities']['media'], $tweet['extended_entities']['media']] as
                     $index => $entities) {
@@ -1862,7 +1885,9 @@ if (!empty($tweets) && is_array($tweets)) {
                     }
 
                     $i      = strlen($tweet['text']); // will append to tweet after!
-                    $url    = empty($media_prefix) ? 'file://' . realpath($path) : str_replace('//', '/', $media_prefix . substr($path, strlen($dir) + 1));
+                    $url    = empty($media_prefix) ? 'file://' . realpath($path)
+                            : str_replace('//', '/',
+                            $media_prefix . substr($path, strlen($dir) + 1));
                     $entity = array_replace_recursive($entity,
                         [
                         'url'             => '',
@@ -1870,7 +1895,7 @@ if (!empty($tweets) && is_array($tweets)) {
                         'media_url'       => $url,
                         'media_url_https' => $url,
                         'display_url'     => '',
-                        'indices'         => [$i, $i + 1],
+                        'indices'         => [$i, $i + strlen($url) + 1],
                     ]);
 
                     $entities[$e] = $entity;
@@ -1878,10 +1903,15 @@ if (!empty($tweets) && is_array($tweets)) {
 
                 if (0 === $index) {
                     $tweet['entities']['media'] = $entities;
+                    $tweet['extended_entities']['media'] = $entities;
                 } else { // 1
-                    $tweet['extended_entities'] = $entities;
+                    $tweet['extended_entities']['media'] = $entities;
                 }
             }
+        }
+
+        if (empty($tweet['extended_entities']['media'])) {
+            $tweet['extended_entities']['media'] = $tweet['entities']['media'];
         }
 
         // re-build url entity indexes
@@ -1897,6 +1927,7 @@ if (!empty($tweets) && is_array($tweets)) {
                 $i     = stripos($tweet['text'], $url);
                 if (false === $i) {
                     debug("Failed searching text for URL:", $tweet);
+                    exit;
                 }
                 $host = $parts['host'];
 
@@ -1919,12 +1950,11 @@ if (!empty($tweets) && is_array($tweets)) {
                     "url"          => $url,
                     "expanded_url" => $url,
                     "display_url"  => $display_url,
-                    "indices"      => [$i, $i + strlen($url)]
+                    "indices"      => [$i, $i + strlen($url) + 1],
                 ];
             }
         }
         $tweet['entities']['urls'] = $tweet_urls;
-
 
         // find twitpic, remove if in files
         $search  = $replace = [];
@@ -1976,7 +2006,7 @@ if (!empty($tweets) && is_array($tweets)) {
         // perform the search/replace on urls in 'text'
         $text                        = trim(str_replace($search, $replace, $text));
         $tweet['display_text_range'] = [0, strlen($text)];
-        $tweet['text']               = $text;
+        $tweet['text']               = $text . "\n";
         ksort($tweet);
         $tweets[$tweet_id]           = $tweet;
     }
@@ -2041,7 +2071,12 @@ if ($do['urls-check']) {
                 $urls_checked, $urls_remaining, $urls_changed, $urls_bad,
                 $target));
 
-        $result = url_resolve($target);
+
+        if (!array_key_exists($target, $urls) || is_numeric($urls[$target])) {
+            $u = url_resolve($target); // resolve $url to find value for $target
+        } else {
+            $u = $urls[$target];
+        }
 
         if ($result !== $target) {
             verbose(sprintf("\nURL updated:\n\t%s\n", $result));
@@ -2325,9 +2360,7 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
         }
 
         // remove keys not in grailbord
-        foreach (['truncated', 'retweet_count', 'retweeted', 'favorited', 'favorite_count',
-        'possibly_sensitive', 'rt',
-        'lang', 'display_text_range', 'full_text', 'created_at_unixtime', 'extended_entities'] as
+        foreach (['retweet_count', 'retweeted', 'favorited', 'favorite_count', 'rt', 'full_text', 'created_at_unixtime', 'display_text_range'] as
                 $key) {
             if (array_key_exists($key, $tweet)) {
                 unset($tweet[$key]);
@@ -2353,12 +2386,14 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
                     }
                     // remove source dir path, check it does not match the media prefix
                     if ($dir !== $media_prefix) {
-                        $to = $grailbird_dir . '/' . str_replace("$dir/", '', $from);
+                        $to = $grailbird_dir . '/' . str_replace("$dir/", '',
+                                $from);
                     } else {
-                        $to = $grailbird_dir . '/' . $media_prefix . '/' . str_replace("$dir/", '', $from);
+                        $to = $grailbird_dir . '/' . $media_prefix . '/' . str_replace("$dir/",
+                                '', $from);
                     }
-                    $to = str_replace('//' ,'', $to);
-                    $i = strrpos($to, '/');
+                    $to = str_replace('//', '', $to);
+                    $i  = strrpos($to, '/');
                     if (false !== $i) {
                         $target_dir = substr($to, 0, $i);
                         if (!is_dir($target_dir)) {
@@ -3338,3 +3373,4 @@ function twitpic_download($url, $path, $mime_type = 'image/jpeg')
 
     return true;
 }
+

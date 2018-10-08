@@ -1811,7 +1811,7 @@ if (!empty($tweets) && is_array($tweets)) {
                 $i                = stripos($tweet['text'], $hashtag);
                 $tweet_hashtags[] = [
                     "text"    => substr($hashtag, 1),
-                    "indices" => [$i, $i + strlen($hashtag) + 1],
+                    "indices" => [$i, $i + strlen($hashtag)],
                 ];
             }
         }
@@ -1827,7 +1827,7 @@ if (!empty($tweets) && is_array($tweets)) {
                     unset($tweet['entities']['user_mentions'][$e]);
                     continue;
                 }
-                $entity['indices'] = [$i, $i + strlen($screen_name) + 2];
+                $entity['indices'] = [$i, $i + strlen($screen_name) + 1];
                 $tweet['entities']['user_mentions'][$e] = $entity;
             }
         }
@@ -1887,7 +1887,7 @@ if (!empty($tweets) && is_array($tweets)) {
                     $i      = strlen($tweet['text']); // will append to tweet after!
                     $url    = empty($media_prefix) ? 'file://' . realpath($path)
                             : str_replace('//', '/',
-                            $media_prefix . substr($path, strlen($dir) + 1));
+                            $media_prefix . substr($path, strlen($dir)));
                     $entity = array_replace_recursive($entity,
                         [
                         'url'             => '',
@@ -1895,7 +1895,7 @@ if (!empty($tweets) && is_array($tweets)) {
                         'media_url'       => $url,
                         'media_url_https' => $url,
                         'display_url'     => '',
-                        'indices'         => [$i, $i + strlen($url) + 1],
+                        'indices'         => [$i, $i + strlen($url)],
                     ]);
 
                     $entities[$e] = $entity;
@@ -1950,7 +1950,7 @@ if (!empty($tweets) && is_array($tweets)) {
                     "url"          => $url,
                     "expanded_url" => $url,
                     "display_url"  => $display_url,
-                    "indices"      => [$i, $i + strlen($url) + 1],
+                    "indices"      => [$i, $i + strlen($url)],
                 ];
             }
         }
@@ -2990,18 +2990,24 @@ function to_charset($data, $to_charset = 'UTF-8', $from_charset = 'auto')
     if (is_numeric($data)) {
         if (is_float($data)) {
             return (float) $data;
-        } else { // this is intentional because some js has a problem with int
-            return (string) $data;
+        } else {
+            return (int) $data;
         }
     } else if (is_string($data)) {
         return mb_convert_encoding($data, $to_charset, $from_charset);
     } else if (is_array($data)) {
         foreach ($data as $key => $value) {
             $data[$key] = to_charset($value, $to_charset, $from_charset);
+            if (false !== stristr($key, '_str') && is_int($data[$key])) {
+                $data[$key] = (string) $data[$key];
+            }
         }
     } else if (is_object($data)) {
         foreach ($data as $key => $value) {
             $data->$key = to_charset($value, $to_charset, $from_charset);
+        }
+        if (false !== stristr($key, '_str') && is_int($data[$key])) {
+            $data[$key] = (string) $data[$key];
         }
     }
     return $data;

@@ -1192,61 +1192,62 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
         }
         $full_text = $tweet['text'];
 
-        // find the files for the tweet
-        if (!empty($tweet['entities']['media'])) {
-            $extended_entities = empty($tweet['extended_entities']['media']) ? $tweet['entities']['media'] : $tweet['extended_entities']['media'];
-            foreach ([$tweet['entities']['media'], $extended_entities] as
-                    $entities) {
-                if (empty($entities)) {
-                    continue;
-                }
-                foreach ($entities as $entity) {
-                    // construct the local filename, then later check it exists
-                    $media_file   = basename($entity['media_url_https']);
-                    $media_file2  = $tweet_id . '-' . $media_file;
-                    $search_files = [
-                        $media_file  => $media_file,
-                        $media_file2 => $media_file2
-                    ];
-                    if (array_key_exists('source_status_id', $entity)) {
-                        $media_file3                = $entity['source_status_id'] . '-' . $media_file;
-                        $search_files[$media_file3] = $media_file3;
-                    }
+        $entities_media = empty($tweet['entities']['media']) ? [] : $tweet['entities']['media'];
+        $extended_entities = empty($tweet['extended_entities']['media']) ? $tweet['entities']['media'] : $tweet['extended_entities']['media'];
+        $rt_entities = empty($tweet['retweeted_status']['entities']['media'])
+                ? [] : $tweet['retweeted_status']['entities']['media'];
 
-                    // check if the filename is just {id}.{ext} instead of {tweet_id}-{id}.{ext}
-                    $found = false; // found local file
-                    foreach ($search_files as $file) {
-                        if (array_key_exists($file, $images)) {
-                            $tweet['images'][$file] = $images[$file];
-                            $found                  = true;
-                            break;
-                        } else if (array_key_exists($file, $videos)) {
-                            $tweet['videos'][$file] = $videos[$file];
-                            $found                  = true;
-                            break;
-                        } else if (array_key_exists($file, $files)) {
-                            $tweet['files'][$file] = $files[$file];
-                            $found                 = true;
-                            break;
-                        }
+        foreach ([$entities_media, $extended_entities, $rt_entities] as
+                $entities) {
+            if (empty($entities)) {
+                continue;
+            }
+            foreach ($entities as $entity) {
+                // construct the local filename, then later check it exists
+                $media_file   = basename($entity['media_url_https']);
+                $media_file2  = $tweet_id . '-' . $media_file;
+                $search_files = [
+                    $media_file  => $media_file,
+                    $media_file2 => $media_file2
+                ];
+                if (array_key_exists('source_status_id', $entity)) {
+                    $media_file3                = $entity['source_status_id'] . '-' . $media_file;
+                    $search_files[$media_file3] = $media_file3;
+                }
+
+                // check if the filename is just {id}.{ext} instead of {tweet_id}-{id}.{ext}
+                $found = false; // found local file
+                foreach ($search_files as $file) {
+                    if (array_key_exists($file, $images)) {
+                        $tweet['images'][$file] = $images[$file];
+                        $found                  = true;
+                        break;
+                    } else if (array_key_exists($file, $videos)) {
+                        $tweet['videos'][$file] = $videos[$file];
+                        $found                  = true;
+                        break;
+                    } else if (array_key_exists($file, $files)) {
+                        $tweet['files'][$file] = $files[$file];
+                        $found                 = true;
+                        break;
                     }
-                    if (empty($found)) {
-                        if (!array_key_exists($media_file, $missing_media)) {
-                            debug(sprintf("Missing media file: %s", $media_file),
-                                $entity);
-                            $media_file                 = sprintf($dir . '/tweet_media/%s',
-                                $media_file);
-                            $missing_media[$media_file] = $entity['media_url_https'];
-                        }
+                }
+                if (empty($found)) {
+                    if (!array_key_exists($media_file, $missing_media)) {
+                        debug(sprintf("Missing media file: %s", $media_file),
+                            $entity);
+                        $media_file                 = sprintf($dir . '/tweet_media/%s',
+                            $media_file);
+                        $missing_media[$media_file] = $entity['media_url_https'];
                     }
                 }
             }
         }
 
         // find the locally saved video files
-        if (!empty($tweet['extended_entities']['media'])) {
+        if (!empty($extended_entities)) {
 
-            foreach ($tweet['extended_entities']['media'] as $entity) {
+            foreach ($extended_entities as $entity) {
 
                 // detect the video files if different bitrates for same content
                 if (!empty($entity['video_info']['variants'])) {

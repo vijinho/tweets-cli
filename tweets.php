@@ -1011,9 +1011,16 @@ if (!empty($tweets) && is_array($tweets)) {
 
         // expand urls which are already embedded in the tweet json data
         // so no look-up is required of them
-        if ($do['urls-expand'] && !empty($tweet['entities']['urls'])) {
+        $entities_urls = [];
+        if (!empty($tweet['entities']['retweeted_status']['entities']['urls'])) {
+            $entities_urls = array_merge($entities_urls, $tweet['entities']['retweeted_status']['entities']['urls']);
+        }
+        if (!empty($tweet['entities']['retweeted_status']['entities']['urls'])) {
+            $entities_urls = array_merge($entities_urls, $tweet['entities']['retweeted_status']['entities']['urls']);
+        }
+        if ($do['urls-expand'] && !empty($entities_urls)) {
             $search  = $replace = [];
-            foreach ($tweet['entities']['urls'] as $entity) {
+            foreach ($entities_urls as $entity) {
                 $search[]  = $entity['url'];
                 $replace[] = $entity['expanded_url'];
 

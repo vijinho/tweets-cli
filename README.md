@@ -63,7 +63,7 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
         -i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'
         -a,  --tweets-all             Get all tweets (further operations below will depend on this)
              --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php
-             --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php 
+             --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php
              --no-retweets            Drop re-tweets (RT's)
              --no-mentions            Drop tweets starting with mentions
              --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)
@@ -86,16 +86,16 @@ Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified t
 
 Report duplicate tweet media files and output to 'dupes.json':
         `php tweets-tweets.php -fdupes.json --dupes`
-        
+
 Show total tweets in tweets file:
         `php tweets.php --tweets-count --verbose`
-        
+
 Write all users mentioned in tweets to file 'users.json':
         `php tweets.php --list-users --verbose`
-        
+
 Show javascript files in backup folder:
         `php tweets.php --list-js --verbose`
-        
+
 Resolve all URLs in 'tweet.js' file, writing output to 'tweet.json':
         `php tweets.php --tweets-all --urls-resolve --filename=tweet.json`
 
@@ -107,25 +107,25 @@ Get tweets, only id, created and text keys:
 
 Get tweets from 1 Jan 2017 to 'last friday':
         `php tweets.php -v -a -o -u --date-from '2017-01-01' --date-to='last friday'`
-        
+
 Filter tweet text on word 'hegemony' since last year
          `php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony`
 
 Generate grailbird files with expanded/resolved URLs:
         `php tweets.php --tweets-all --verbose --urls-expand --urls-resolve --grailbird=grailbird`
-        
+
 Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:
         `php tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --grailbird=grailbird`
-        
+
 Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:
         `php tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --grailbird=grailbird`
-        
+
 Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:
         `php tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird`
-        
+
 Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':
         `php tweets-tweets.php --delete --dupes`
-        
+
 Extract the first couple of words of the tweet and name the saved regexp 'words':
         `tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words`
 
@@ -150,10 +150,12 @@ Export only tweets which have the 'withheld_in_countries' key to export/grailbir
 Prefix the local media with to a URL path 'assets':
         `php tweets.php --media-prefix='/assets'`
 
-Export tweets with local media files to web folder 'euromoan/www/euromoan' with media files under URL path '/euromoan/': 
+Export tweets with local media files to web folder 'euromoan/www/euromoan' with media files under URL path '/euromoan/':
         `php cli/tweets.php --dir=euromoan --grailbird=euromoan/www/euromoan/ --grailbird-media  --media-prefix='/euromoan/'`
 
+Import all tweets from grailbird files and export back to grailbird, resolving links and copying media:
 
+        `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -feuromoan/tweet.json --grailbird-import=euromoan/import/data/js  --grailbird=euromoan/www/euromoan --grailbird-media --media-prefix='/euromoan' -u -o -l --debug 2>&1 | less`
 
 ## Note
 

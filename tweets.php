@@ -1853,8 +1853,14 @@ if (!empty($tweets) && is_array($tweets)) {
                     ? [] : $tweet['entities']['media'];
             $tweet['extended_entities']['media'] = empty($tweet['extended_entities']['media'])
                     ? $tweet['entities']['media'] : $tweet['extended_entities']['media'];
+            $tweet['retweeted_status']['entities']['media'] = empty($tweet['retweeted_status']['entities']['media'])
+                    ? [] : $tweet['retweeted_status']['entities']['media'];
 
-            foreach ([$tweet['entities']['media'], $tweet['extended_entities']['media']] as
+            foreach ([
+                    $tweet['entities']['media'],
+                    $tweet['extended_entities']['media'],
+                    $tweet['retweeted_status']['entities']['media']
+                ] as
                     $index => $entities) {
 
                 if (empty($entities)) {
@@ -1917,10 +1923,22 @@ if (!empty($tweets) && is_array($tweets)) {
                 if (0 === $index) {
                     $tweet['entities']['media'] = $entities;
                     $tweet['extended_entities']['media'] = $entities;
-                } else { // 1
+                } else if (1 === $index) {
                     $tweet['extended_entities']['media'] = $entities;
+                } else if (2 === $index)  {
+                    $tweet['retweeted_status']['entities']['media'] = $entities;
                 }
             }
+        }
+
+        if (empty($tweet['retweeted_status']['entities']['media'])) {
+            unset($tweet['retweeted_status']['entities']['media']);
+        }
+        if (empty($tweet['retweeted_status']['entities'])) {
+            unset($tweet['retweeted_status']['entities']);
+        }
+        if (empty($tweet['retweeted_status'])) {
+            unset($tweet['retweeted_status']);
         }
 
         if (empty($tweet['extended_entities']['media'])) {

@@ -1023,7 +1023,9 @@ if (!empty($tweets) && is_array($tweets)) {
             foreach ($entities_urls as $entity) {
                 $search[]  = $entity['url'];
                 $replace[] = $entity['expanded_url'];
-
+                if (!empty($urls[$entity['url']])) {
+                    continue;
+                }
                 // if expanded url is a short url set to null, to perform search later
                 $parts = parse_url($entity['expanded_url']);
                 if (false !== $parts && count($parts) > 1 && in_array(strtolower($parts['host']),

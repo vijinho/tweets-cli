@@ -155,7 +155,7 @@ Export tweets with local media files to web folder 'euromoan/www/euromoan' with 
 
 Import all tweets from grailbird files and export back to grailbird, resolving links and copying media:
 
-        `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -feuromoan/tweet.json --grailbird-import=euromoan/import/data/js  --grailbird=euromoan/www/euromoan --grailbird-media --media-prefix='/euromoan' -u -o -l --debug 2>&1 | less`
+        `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -ftweet.js --grailbird-import=euromoan/import/data/js  --grailbird=euromoan/www/euromoan --grailbird-media --media-prefix='/euromoan' -u -o -l --debug 2>&1 | less`
 
 ## Note
 
@@ -278,7 +278,6 @@ $ php cli/tweets.php --dir=euromoan --grailbird=euromoan/www/euromoan/ --grailbi
 $ cd euromoan/www
 $ php -S 127.0.0.1:9012
 ```
-
 
 ## To Do
 

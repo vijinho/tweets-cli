@@ -755,15 +755,16 @@ if ($do['grailbird-import']) {
 
                 // we need to remove the 'retweeted_status' entry to the top level to match 'tweet.js'
                 if (array_key_exists('retweeted_status', $tweet)) {
+                    //$tweet['text'] = sprintf('RT @%s: %s', $tweet_rt['user']['screen_name'], $tweet_rt['text']);
                     $tweet_rt = $tweet['retweeted_status'];
-                    $tweet_rt['text'] = sprintf('RT @%s: %s', $tweet_rt['user']['screen_name'], $tweet_rt['text']);
-                    if (!array_key_exists($tweet_rt['id'], $tweets)) {
-                        $tweets[$tweet_rt['id']] = $tweet_rt;
-                    } else {
-                        $tweets[$tweet_rt['id']] = array_replace_recursive($tweets[$tweet_rt['id']],
-                            $tweet_rt);
-                    }
+                    $tweet_rt['id'] = (int) $tweet_rt['id'];
+                    $id = $tweet_rt['id'];
                     unset($tweet['retweeted_status']);
+                    if (!array_key_exists($id, $tweets)) {
+                        //$tweets[$id] = $tweet_rt;
+                    } else {
+                        $tweets[$id] = array_replace_recursive($tweet, $tweet_rt);
+                    }
                 }
             }
         }
@@ -1943,9 +1944,9 @@ if (!empty($tweets) && is_array($tweets)) {
                     $host = substr($host, 3);
                 }
                 if (!array_key_exists('path', $parts)) {
-                    $display_url = '(' . sprintf("%s", $host) . ')';
+                    $display_url = sprintf("%s", $host);
                 } else {
-                    $display_url = '(' . sprintf("%s%s", $host, $parts['path']) . ')';
+                    $display_url = sprintf("%s%s", $host, $parts['path']);
                 }
 
                 // set the entity urls
@@ -2268,6 +2269,7 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
 
     // generate the monthly tweets files as an array from $tweets
     $month_files = [];
+    krsort($tweets); // grailbird works in reverse
 
     foreach ($tweets as $tweet_id => $tweet_default) {
 
@@ -2427,7 +2429,8 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
     // write the monthly tweets array to individual files
     verbose(sprintf("Writing %d year_month.js data files for grailbird…",
             count($month_files)));
-    krsort($month_files);
+
+    // graibird sorts in descending date/time order so we need to make sure
     $tweet_index = []; // for tweet_index.js file
     foreach ($month_files as $yyyymm => $month_tweets) {
         $year          = (int) substr($yyyymm, 0, 4);
@@ -2440,7 +2443,7 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
             "tweet_count" => count($month_tweets),
             "month"       => $month
         ];
-        ksort($month_tweets); // to start with current year at top of grailbird app page
+
         $filename      = $grailbird_dir . '/data/js/tweets/' . $yyyymm . '.js';
         $prepend_text  = 'Grailbird.data.tweets_' . $yyyymm . ' = ' . "\n";
         $save          = json_save($filename, $month_tweets, $prepend_text);

@@ -822,7 +822,7 @@ if (!is_string($urls)) {
 verbose(sprintf("URLs loaded: %d", count($urls)));
 
 // summarise the number of source urls and target urls by host and tidy-up urls
-if (DEBUG && !empty($urls)) {
+if (!empty($urls)) {
     $src_hosts    = [];
     $target_hosts = [];
     $unresolved   = [];
@@ -832,6 +832,13 @@ if (DEBUG && !empty($urls)) {
         $u = parse_url($url);
         if (!empty($u['host'])) {
             $src_hosts[] = $u['host'];
+        }
+
+        // remove urls
+        if (array_key_exists($target, $urls)) {
+            if ((!is_numeric($target) && $target === $urls[$target]) || false === parse_url($target)) {
+                unset($urls[$target]);
+            }
         }
 
         $t = parse_url($target);
@@ -1193,7 +1200,7 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
         $full_text = $tweet['text'];
 
         $entities_media = empty($tweet['entities']['media']) ? [] : $tweet['entities']['media'];
-        $extended_entities = empty($tweet['extended_entities']['media']) ? $tweet['entities']['media'] : $tweet['extended_entities']['media'];
+        $extended_entities = empty($tweet['extended_entities']['media']) ? $entities_media : $tweet['extended_entities']['media'];
         $rt_entities = empty($tweet['retweeted_status']['entities']['media'])
                 ? [] : $tweet['retweeted_status']['entities']['media'];
 

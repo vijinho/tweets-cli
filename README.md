@@ -29,13 +29,8 @@ A command-line (CLI) script to batch-process and work with the files unzipped fr
 This is intentionally written as a stand-alone self-contained command-line php script, hacked-together, written in a procedural style.  These are the command-line options available:
 
 ```
-Usage: php tweets.php <options>
-
-        Unshorten a URL, returning the text, CURL error code or -22 (wget failure) if other URL failure
-
 Usage: php tweets.php
-Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified tweet text is a new attribute: text
-(Specifying any other unknown argument options will be ignored.)
+Adds/Modifies/Removes/Views tweets from exported twitter archive. Specifying any other unknown argument options will be ignored.
 
         -h,  --help                   Display this help and exit
         -v,  --verbose                Run in verbose mode

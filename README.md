@@ -29,7 +29,7 @@ A command-line (CLI) script to batch-process and work with the files unzipped fr
 This is intentionally written as a stand-alone self-contained command-line php script, hacked-together, written in a procedural style.  These are the command-line options available:
 
 ```
-Usage: php resolve.php -u <URL>
+Usage: php tweets.php <options>
 
         Unshorten a URL, returning the text, CURL error code or -22 (wget failure) if other URL failure
 

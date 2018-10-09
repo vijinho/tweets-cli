@@ -30,7 +30,6 @@ This is intentionally written as a stand-alone self-contained command-line php s
 
 ```
 Usage: php tweets.php
-Adds/Modifies/Removes/Views tweets from exported twitter archive. Specifying any other unknown argument options will be ignored.
 
         -h,  --help                   Display this help and exit
         -v,  --verbose                Run in verbose mode

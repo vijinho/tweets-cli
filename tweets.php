@@ -181,10 +181,8 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
 
     print join("\n",
             [
-            "\nUsage: php resolve.php -u <URL>",
-            "\n\tUnshorten a URL, returning the text, CURL error code or -22 (wget failure) if other URL failure\n",
             "Usage: php tweets.php",
-            "Adds/Modifies/Removes/Views tweets from exported twitter archive. The modified tweet text is a new attribute: text",
+            "Manipulates tweets taken from an exported twitter archive.",
             "(Specifying any other unknown argument options will be ignored.)\n",
             "\t-h,  --help                   Display this help and exit",
             "\t-v,  --verbose                Run in verbose mode",

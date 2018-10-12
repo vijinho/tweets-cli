@@ -1112,6 +1112,7 @@ if (!empty($tweets) && is_array($tweets)) {
 
         $tweets[$tweet_id] = $tweet;
     }
+    $tweets_count = count($tweets); 
 }
 
 verbose(sprintf("Tweets available for further processing: %d", $tweets_count));

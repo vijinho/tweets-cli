@@ -352,7 +352,7 @@ verbose(sprintf("OUTPUT_FORMAT: %s", $format));
 //-----------------------------------------------------------------------------
 // get dir to read unzipped twitter backup archive files from
 
-$dir = '';
+$dir = '.';
 if (!empty($options['dir'])) {
     $dir = $options['dir'];
 }

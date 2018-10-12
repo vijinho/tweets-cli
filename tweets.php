@@ -3150,6 +3150,9 @@ function json_save($file, $data, $prepend = '', $append = '')
     if (TEST) {
         return true;
     }
+    if (empty($file)) {
+        return 'Missing filename.';
+    }
     if (empty($data)) {
         return 'No data to write to file.';
     }

@@ -1112,7 +1112,7 @@ if (!empty($tweets) && is_array($tweets)) {
 
         $tweets[$tweet_id] = $tweet;
     }
-    $tweets_count = count($tweets); 
+    $tweets_count = count($tweets);
 }
 
 verbose(sprintf("Tweets available for further processing: %d", $tweets_count));
@@ -3028,7 +3028,8 @@ function array_clear($array, $keys = [])
 function to_charset($data, $to_charset = 'UTF-8', $from_charset = 'auto')
 {
     if (is_numeric($data)) {
-        if (is_float($data)) {
+        $float = (string)(float) $data;
+        if ($data === $float) {
             return (float) $data;
         } else {
             return (int) $data;

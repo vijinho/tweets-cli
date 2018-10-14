@@ -3029,7 +3029,9 @@ function to_charset($data, $to_charset = 'UTF-8', $from_charset = 'auto')
 {
     if (is_numeric($data)) {
         $float = (string)(float) $data;
-        if ($data === $float) {
+        if (is_int($data)) {
+            return (int) $data;
+        } else if (is_float($data) || $data === $float) {
             return (float) $data;
         } else {
             return (int) $data;

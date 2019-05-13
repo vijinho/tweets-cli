@@ -2028,9 +2028,6 @@ if (!empty($tweets) && is_array($tweets)) {
                                 }
                             }
                             break;
-                        default:
-                            continue;
-                            break;
                     }
 
                     if ($do['list-missing-media'] || $do['download-missing-media']) {

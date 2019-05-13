@@ -254,7 +254,10 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\nExport only tweets which have the 'withheld_in_countries' key to export/grailbird folder:\n\n\tphp tweets-tweets.php -d -a -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'",
         "\nPrefix the local media with to a URL path 'assets':\n\n\tphp tweets.php --media-prefix='/assets'",
         "\nExport tweets with local media files to web folder:\n\n\tphp cli/tweets.php -d -v --dir=vijinho --grailbird-import=vijinho/import/data/js/tweets --grailbird=vijinho/www/vijinho/ --grailbird-media --media-prefix='/vijinho/'",
-        "\nExport only tweets from file 'tweet.json', no mentions, no RTs, media tweets only':\n\n\tphp ../cli/tweets.php -d -v --dir=. --tweets-file=tweets.json --grailbird=www/vijinho/ --local --grailbird-media --media-prefix='/vijinho/'  --no-retweets --no-mentions --media-only",
+        "\nExport only tweets from file 'tweet.json', media tweets only':\n\n\tphp ../cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --grailbird=www/vijinho/ --local --grailbird-media --media-prefix='/vijinho/' --media-only",
+        "\nExport only tweets from file 'tweet.json', no mentions, no RTs':\n\n\tphp ../cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --grailbird=www/vijinho/ --local --grailbird-media --media-prefix='/vijinho/'  --no-retweets --no-mentions",
+        "\nExport only tweets from file 'tweet.json', containing text 'youtu':\n\n\tphp ../cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --grailbird=www/vijinho/ --local --grailbird-media --media-prefix='/vijinho/' --regexp='/youtu/'",
+        "\nImport twitter grailbird files and check every URL and export new grailbird files: cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --grailbird=www/vijinho/ --grailbird-import=import/data/js/tweets --urls-check-source",
     ]) . "\n";
 
     // goto jump here if there's a problem
@@ -2106,15 +2109,15 @@ if ($do['urls-check']) {
             $u = $urls[$target];
         }
 
-        if ($result !== $target) {
-            verbose(sprintf("\nURL updated:\n\t%s\n", $result));
+        if ($u !== $target) {
+            verbose(sprintf("\nURL updated:\n\t%s\n", $u));
             // only overwrite target if it is good, do not replace with error code!
-            if (empty($result) || is_numeric($result)) {
+            if (empty($u) || is_numeric($u)) {
                 ++$urls_bad;
                 continue;
             } else {
                 ++$urls_changed;
-                $urls[$url] = $result;
+                $urls[$url] = $u;
             }
         }
 
@@ -3297,6 +3300,7 @@ function url_resolve($url, $options = [])
     }
     // same URl, loop!
     if ($target_url == $url) {
+        /*
         $cmd_wget_spider = sprintf(
             "$wget --user-agent='' -t 2 -T 5 -v --spider %s",
             escapeshellarg($url)
@@ -3337,6 +3341,7 @@ function url_resolve($url, $options = [])
                 }
             }
         }
+        */
     }
     if ($status === 0 || ($status == 6 && !is_numeric($target_url)) && !empty($target_url)) {
         $curl_http_status = "$curl $curl_options -s -o /dev/null -w %{http_code} " . escapeshellarg($target_url);

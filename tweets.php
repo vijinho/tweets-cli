@@ -724,7 +724,7 @@ if ($do['grailbird-import']) {
             }
 
             $filename = basename($file);
-            $data = json_load_twitter($grailbird_import_dir, $filename);
+            $data     = json_load_twitter($grailbird_import_dir, $filename);
             if (!is_array($data)) {
                 $errors = sprintf("No data found in file: %s", $path);
                 goto errors;
@@ -754,9 +754,9 @@ if ($do['grailbird-import']) {
                 // we need to remove the 'retweeted_status' entry to the top level to match 'tweet.js'
                 if (array_key_exists('retweeted_status', $tweet)) {
                     //$tweet['text'] = sprintf('RT @%s: %s', $tweet_rt['user']['screen_name'], $tweet_rt['text']);
-                    $tweet_rt = $tweet['retweeted_status'];
+                    $tweet_rt       = $tweet['retweeted_status'];
                     $tweet_rt['id'] = (int) $tweet_rt['id'];
-                    $id = $tweet_rt['id'];
+                    $id             = $tweet_rt['id'];
                     unset($tweet['retweeted_status']);
                     if (!array_key_exists($id, $tweets)) {
                         //$tweets[$id] = $tweet_rt;
@@ -769,7 +769,7 @@ if ($do['grailbird-import']) {
 
         $tweets = array_column($tweets, null, 'id'); // re-index
         ksort($tweets);
-        $save = json_save($output_filename, $tweets);
+        $save   = json_save($output_filename, $tweets);
         if (true !== $save) {
             $errors[] = "\nFailed encoding JSON output file:\n\t$output_filename\n";
             $errors[] = "\nJSON Error: $save\n";
@@ -1018,10 +1018,12 @@ if (!empty($tweets) && is_array($tweets)) {
         // so no look-up is required of them
         $entities_urls = [];
         if (!empty($tweet['retweeted_status']['entities']['urls'])) {
-            $entities_urls = array_merge($entities_urls, $tweet['retweeted_status']['entities']['urls']);
+            $entities_urls = array_merge($entities_urls,
+                $tweet['retweeted_status']['entities']['urls']);
         }
         if (!empty($tweet['entities']['urls'])) {
-            $entities_urls = array_merge($entities_urls, $tweet['entities']['urls']);
+            $entities_urls = array_merge($entities_urls,
+                $tweet['entities']['urls']);
         }
         if ($do['urls-expand'] && !empty($entities_urls)) {
             $search  = $replace = [];
@@ -1198,9 +1200,10 @@ if ($do['local'] && !empty($tweets) && is_array($tweets)) {
         }
         $full_text = $tweet['text'];
 
-        $entities_media = empty($tweet['entities']['media']) ? [] : $tweet['entities']['media'];
-        $extended_entities = empty($tweet['extended_entities']['media']) ? $entities_media : $tweet['extended_entities']['media'];
-        $rt_entities = empty($tweet['retweeted_status']['entities']['media'])
+        $entities_media    = empty($tweet['entities']['media']) ? [] : $tweet['entities']['media'];
+        $extended_entities = empty($tweet['extended_entities']['media']) ? $entities_media
+                : $tweet['extended_entities']['media'];
+        $rt_entities       = empty($tweet['retweeted_status']['entities']['media'])
                 ? [] : $tweet['retweeted_status']['entities']['media'];
 
         foreach ([$entities_media, $extended_entities, $rt_entities] as
@@ -1612,7 +1615,7 @@ if ($do['urls-resolve'] && !OFFLINE) {
                             $url_shorteners)) {
                         // shortened url, resolve again
                         if (!array_key_exists($target, $urls) || is_numeric($urls[$target])) {
-                            $newtarget  = url_resolve($target);
+                            $newtarget = url_resolve($target);
                         } else {
                             $newtarget = $urls[$url];
                         }
@@ -1847,7 +1850,8 @@ if (!empty($tweets) && is_array($tweets)) {
                     unset($tweet['entities']['user_mentions'][$e]);
                     continue;
                 }
-                $entity['indices'] = [$i, $i + strlen($screen_name) + 1];
+                $entity['indices']                      = [$i, $i + strlen($screen_name)
+                    + 1];
                 $tweet['entities']['user_mentions'][$e] = $entity;
             }
         }
@@ -1856,19 +1860,18 @@ if (!empty($tweets) && is_array($tweets)) {
         if ($do['local']) {
             $found_entities = [];
 
-            $tweet['entities']['media']          = empty($tweet['entities']['media'])
+            $tweet['entities']['media']                     = empty($tweet['entities']['media'])
                     ? [] : $tweet['entities']['media'];
-            $tweet['extended_entities']['media'] = empty($tweet['extended_entities']['media'])
+            $tweet['extended_entities']['media']            = empty($tweet['extended_entities']['media'])
                     ? $tweet['entities']['media'] : $tweet['extended_entities']['media'];
             $tweet['retweeted_status']['entities']['media'] = empty($tweet['retweeted_status']['entities']['media'])
                     ? [] : $tweet['retweeted_status']['entities']['media'];
 
             foreach ([
-                    $tweet['entities']['media'],
-                    $tweet['extended_entities']['media'],
-                    $tweet['retweeted_status']['entities']['media']
-                ] as
-                    $index => $entities) {
+            $tweet['entities']['media'],
+            $tweet['extended_entities']['media'],
+            $tweet['retweeted_status']['entities']['media']
+            ] as $index => $entities) {
 
                 if (empty($entities)) {
                     continue;
@@ -1928,11 +1931,11 @@ if (!empty($tweets) && is_array($tweets)) {
                 }
 
                 if (0 === $index) {
-                    $tweet['entities']['media'] = $entities;
+                    $tweet['entities']['media']          = $entities;
                     $tweet['extended_entities']['media'] = $entities;
                 } else if (1 === $index) {
                     $tweet['extended_entities']['media'] = $entities;
-                } else if (2 === $index)  {
+                } else if (2 === $index) {
                     $tweet['retweeted_status']['entities']['media'] = $entities;
                 }
             }
@@ -2399,8 +2402,8 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
         }
 
         // remove keys not in grailbord
-        foreach (['retweet_count', 'retweeted', 'favorited', 'favorite_count', 'rt', 'full_text', 'created_at_unixtime', 'display_text_range'] as
-                $key) {
+        foreach (['retweet_count', 'retweeted', 'favorited', 'favorite_count', 'rt',
+        'full_text', 'created_at_unixtime', 'display_text_range'] as $key) {
             if (array_key_exists($key, $tweet)) {
                 unset($tweet[$key]);
             }
@@ -2478,9 +2481,9 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
             "month"       => $month
         ];
 
-        $filename      = $grailbird_dir . '/data/js/tweets/' . $yyyymm . '.js';
-        $prepend_text  = 'Grailbird.data.tweets_' . $yyyymm . ' = ' . "\n";
-        $save          = json_save($filename, $month_tweets, $prepend_text);
+        $filename     = $grailbird_dir . '/data/js/tweets/' . $yyyymm . '.js';
+        $prepend_text = 'Grailbird.data.tweets_' . $yyyymm . ' = ' . "\n";
+        $save         = json_save($filename, $month_tweets, $prepend_text);
         if (true !== $save) {
             $errors[] = "\nFailed encoding JSON output file:\n\t$filename\n";
             $errors[] = "\nJSON Error: $save\n";
@@ -3028,7 +3031,7 @@ function array_clear($array, $keys = [])
 function to_charset($data, $to_charset = 'UTF-8', $from_charset = 'auto')
 {
     if (is_numeric($data)) {
-        $float = (string)(float) $data;
+        $float = (string) (float) $data;
         if (is_int($data)) {
             return (int) $data;
         } else if (is_float($data) || $data === $float) {

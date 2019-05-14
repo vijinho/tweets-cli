@@ -1972,17 +1972,21 @@ if (!empty($tweets) && is_array($tweets)) {
 
                     // check if the filename is just {id}.{ext} instead of {tweet_id}-{id}.{ext}
                     $found = false; // found local file
+                    $type = '';
                     foreach ($search_files as $file) {
                         if (array_key_exists($file, $images)) {
                             $path  = $images[$file];
+                            $type = 'images';
                             $found = true;
                             break;
                         } elseif (array_key_exists($file, $videos)) {
                             $path  = $videos[$file];
+                            $type = 'videos';
                             $found = true;
                             break;
                         } elseif (array_key_exists($file, $files)) {
                             $path  = $files[$file];
+                            $type = 'files';
                             $found = true;
                             break;
                         }
@@ -1996,6 +2000,16 @@ if (!empty($tweets) && is_array($tweets)) {
                     $url    = empty($media_prefix) ? 'file://' . realpath($path)
                             : str_replace('//', '/',
                             $media_prefix . substr($path, strlen($dir)));
+
+                    $bn = basename($path);
+                    $tweet[$type][$bn] = $path;
+                    foreach ($tweet[$type] as $f => $p) {
+                        if ($f !== $bn && false !== stristr($f, $bn)) {
+                            unset($tweet[$type][$f]);
+                            break;
+                        }
+                    }
+
                     $entity = array_replace_recursive($entity,
                         [
                         'url'             => '',
@@ -2127,6 +2141,7 @@ if (!empty($tweets) && is_array($tweets)) {
         $tweet['display_text_range'] = [0, strlen($text)];
         $tweet['text']               = $text . "\n";
         ksort($tweet);
+
         $tweets[$tweet_id]           = $tweet;
     }
 

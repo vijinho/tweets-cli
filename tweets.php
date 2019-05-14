@@ -206,7 +206,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t-t,  --test                   Run in test mode, show what would be done, NO filesystem changes.",
         "\t     --dir={.}                Directory of unzipped twitter backup files (current dir if not specified)",
         "\t     --dir-output={.}         Directory to output files in (default to -dir above)",
-        "\t     --format={json}          Output format for script data: txt|php|json (default)",
+        "\t     --format={json}          Output format for script data: txt|md|php|json (default)",
         "\t-f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'",
         "\t     --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.",
         "\t-g,  -g={dir}        Generate json output files compatible with the standard twitter export feature to dir",
@@ -301,6 +301,8 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\ttweets.php -v --thread=967915766195609600 --filename=www/thread/data/js/thread.json -g=www/thread/ --media-prefix='/thread/' --grailbird-media",
         "\nExport the tweet thread 967915766195609600 as a js file test/test.json, and copy media files too:",
             "\ttweets.php -v --dir=vijinho --thread=1108500373298442240 --filename=test/test.json --copy-media=test",
+        "\nExport the tweet thread 967915766195609600 as markdown, and copy media files too:",
+            "\ttweets.php -d -v --dir=vijinho --thread=967915766195609600 --filename=thread/vijinho_967915766195609600_md/item.md --media-prefix=/vijinho_967915766195609600_md/ --copy-media=thread/vijinho_967915766195609600_md --format=md",
     ]) . "\n";
 
     // goto jump here if there's a problem
@@ -390,6 +392,7 @@ if (!empty($options['format'])) {
 switch ($format) {
     case 'txt':
     case 'php':
+    case 'md':
         break;
     default:
     case 'json':
@@ -2547,7 +2550,6 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
                 $tweet[$k] = (int) $tweet[$k];
             }
         }
-/*
         if (!empty($do['copy-media'])) {
             foreach (['videos', 'files', 'images'] as $type) {
                 if (!array_key_exists($type, $tweet) || empty($tweet[$type])) {
@@ -2587,7 +2589,6 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
                 unset($tweet[$type]);
             }
         }
-*/
         $month_files[$month_file][] = $tweet;
     }
 
@@ -2695,6 +2696,109 @@ if ($do['keys-filter']) {
     }
 }
 
+//-----------------------------------------------------------------------------
+// markdown output
+if ('md' == OUTPUT_FORMAT) {
+    $markdown = [];
+
+    // sort tweets by time
+    foreach ($tweets as $tweet_id => $tweet) {
+        unset($tweets[$tweet_id]);
+        $tweets[$tweet['created_at_unixtime']] = $tweet;
+    }
+    ksort($tweets);
+
+    $i = 0;
+    foreach ($tweets as $timestamp => $tweet) {
+        $text = trim($tweet['text']);
+        $markdown[] = '<!--';
+        $markdown[] = $tweet_id;
+        $markdown[] = date('r', $timestamp);
+        $markdown[] = '-->';
+        $markdown[] = '';
+        $markdown[] = $text;
+        $markdown[] = '';
+        $mediacount = 0;
+        foreach (['videos', 'files', 'images'] as $type) {
+            $mediacount++;
+            if (!array_key_exists($type, $tweet) || empty($tweet[$type])) {
+                continue;
+            }
+            foreach ($tweet[$type] as $filename => $from) {
+                $i++;
+                unset($tweet[$type][$filename]);
+                if (!file_exists($from) || 0 == filesize($from)) {
+                    unset($tweet[$type][$filename]);
+                    continue;
+                }
+                $ext = strtolower('.' . pathinfo($from, PATHINFO_EXTENSION));
+                $filename = sprintf("%s_%d%s", $i, $tweet['id'], $ext);
+                $tweet[$type][$filename] = $from;
+                switch ($type) {
+                    case 'images':
+                        $markdown[] = sprintf("![Image %d - %s](%s)", $i, $filename, $filename);
+                        break;
+                    case 'files':
+                        $markdown[] = sprintf("[File %d - %s](%s)", $i, $filename, $filename);
+                        break;
+                    case 'videos':
+                        $markdown[] = sprintf("[Video %d - %s](%s)", $i, $filename, $filename);
+                        break;
+                }
+            }
+        }
+        if ($mediacount > 0)
+            $markdown[] = '';
+
+        if (preg_match_all(
+                '/(?P<url>http[s]?:\/\/[^\s]+[^\.\s]+)/i', $text,
+                $matches
+            )) {
+            foreach ($matches['url'] as $url) {
+                $parts = parse_url($url);
+                if (false == $parts || count($parts) <= 1 || !array_key_exists('host', $parts)) {
+                    continue;
+                }
+                $host = $parts['host'];
+                $description = '';
+                if (false !==  stristr($url, 'youtube.')) {
+                    $description = 'Watch on youtube: ';
+                    $markdown[] = sprintf("[plugin:youtube](%s)", $url);
+                } else if (false !==  stristr($url, 'bitchute.')) {
+                    $description = 'Watch on bitchute: ';
+                } else if (false !==  stristr($url, 'dailymotion.')) {
+                    $description = 'Watch on dailymotion: ';
+                    $markdown[] = sprintf("![](%s)", $url);
+                } else if (false !==  stristr($url, 'vimeo.')) {
+                    $description = 'Watch on vimeo: ';
+                    $markdown[] = sprintf("![](%s)", $url);
+                } else if (false !==  stristr($url, 'soundcloud.') || false !==  stristr($url, 'spotify.')) {
+                    $description = 'Listen: ';
+                    $markdown[] = sprintf("![](%s)", $url);
+                } else if (false !==  stristr($url, 'archive.org')) {
+                    $description = 'Internet Archive: ';
+                } else if (false !==  stristr($url, 'flickr.') || false !==  stristr($url, 'imgur.') || false !==  stristr($url, 'instagram.')) {
+                    $description = 'View: ';
+                    $markdown[] = sprintf("![](%s)", $url);
+                }
+                if (!empty($description) || false == stristr($url, 'twitter.com')) {
+                    if (array_key_exists('path', $parts)) {
+                        $markdown[] = sprintf(" - %s[%s%s](%s)", $description, $parts['host'], $parts['path'], $url);
+                    } else {
+                        $markdown[] = sprintf(" - %s[%s](%s)", $description, $parts['host'], $url);
+                    }
+                }
+            }
+        }
+
+        $tweets[$timestamp] = $tweet;
+    }
+    $output = $markdown;
+}
+
+//-----------------------------------------------------------------------------
+// copy media files
+
 if (!empty($do['copy-media'])) {
     if (empty($media_prefix)) {
         $media_prefix = '';
@@ -2710,20 +2814,32 @@ if (!empty($do['copy-media'])) {
                     $errors[] = "Source file does not exist $from";
                     continue;
                 }
-                // remove source dir path, check it does not match the media prefix
-                if ($dir !== $media_prefix) {
-                    $to = $do['copy-media'] . '/' . str_replace("$dir/", '',
-                            $from);
+                if ('md' !== OUTPUT_FORMAT) {
+                    // remove source dir path, check it does not match the media prefix
+                    if ($dir !== $media_prefix) {
+                        $to = $do['copy-media'] . '/' . str_replace("$dir/", '',
+                                $from);
+                    } else {
+                        $to = $do['copy-media'] . '/' . $media_prefix . '/' . str_replace("$dir/",
+                                '', $from);
+                    }
+                    $to = str_replace('//', '', $to);
+                    $i  = strrpos($to, '/');
+                    if (false !== $i) {
+                        $target_dir = substr($to, 0, $i);
+                        if (!is_dir($target_dir)) {
+                            mkdir($target_dir, 0777, true);
+                        }
+                    }
                 } else {
-                    $to = $do['copy-media'] . '/' . $media_prefix . '/' . str_replace("$dir/",
-                            '', $from);
-                }
-                $to = str_replace('//', '', $to);
-                $i  = strrpos($to, '/');
-                if (false !== $i) {
-                    $target_dir = substr($to, 0, $i);
-                    if (!is_dir($target_dir)) {
-                        mkdir($target_dir, 0777, true);
+                    $to = $do['copy-media'] . '/' . $filename;
+                    $d = pathinfo($to, PATHINFO_DIRNAME);
+                    if (!file_exists($d)) {
+                        mkdir($d, 0777, true);
+                    }
+                    if (!is_dir($d)) {
+                        $errors[] = "Target is not a directory: $d";
+                        goto errors;
                     }
                 }
                 if (file_exists($to)) {
@@ -2781,6 +2897,21 @@ if (!empty($output)) {
             }
             break;
 
+        case 'md':
+            if (empty($output) || !is_array($output)) {
+                break;
+            }
+            $markdown = trim(html_entity_decode(join("\n", $markdown)));
+            $save = save($file, $markdown);
+            if (true !== $save) {
+                $errors[] = "\nFailed saving markdown output file:\n\t$file\n";
+                goto errors;
+            } else {
+                verbose(sprintf("Markdown text written to output file:\n\t%s (%d bytes)\n",
+                        $file, filesize($file)));
+            }
+            break;
+
         case 'php':
             $save = serialize_save($file, $output);
             if (true !== $save) {
@@ -2815,28 +2946,30 @@ exit;
 // functions used above
 
 /**
- * Output string, to STDERR if available.
+ * Output string, to STDERR if available
  *
- * @param  string { string to output
- * @param bool $STDERR write to stderr if it is available
+ * @param  string|array { string to output
+ * @param  boolean $STDERR write to stderr if it is available
  */
 function output($text, $STDERR = true)
 {
     if (!empty($STDERR) && defined('STDERR')) {
         fwrite(STDERR, $text);
     } else {
+        if (is_array($text)) {
+            $text = join("\n", $text);
+        }
         echo $text;
     }
 }
 
 
 /**
- * Dump debug data if DEBUG constant is set.
+ * Dump debug data if DEBUG constant is set
  *
- * @param optional string $string string to output
- * @param optional mixed  $data   to dump
- *
- * @return bool true if string output, false if not
+ * @param  optional string $string string to output
+ * @param  optional mixed $data to dump
+ * @return boolean true if string output, false if not
  */
 function debug($string = '', $data = [])
 {
@@ -2845,21 +2978,17 @@ function debug($string = '', $data = [])
         if (!empty($data)) {
             output(print_r($data, 1));
         }
-
         return true;
     }
-
     return false;
 }
 
-
 /**
- * Output string if VERBOSE constant is set.
+ * Output string if VERBOSE constant is set
  *
- * @param string         $string string to output
- * @param optional mixed $data   to dump
- *
- * @return bool true if string output, false if not
+ * @param  string $string string to output
+ * @param  optional mixed $data to dump
+ * @return boolean true if string output, false if not
  */
 function verbose($string, $data = [])
 {
@@ -2868,13 +2997,10 @@ function verbose($string, $data = [])
         if (!empty($data)) {
             output(print_r($data, 1));
         }
-
         return true;
     }
-
     return false;
 }
-
 
 /**
  * Return the memory used by the script, (current/peak).
@@ -2890,16 +3016,14 @@ function get_memory_used()
 
 
 /**
- * check required commands installed and get path.
+ * check required commands installed and get path
  *
- * @param array $requirements [][command -> description]
- *
+ * @param  array $requirements [][command -> description]
  * @return mixed array [command -> path] or string errors
  */
 function get_commands($requirements = [])
 {
     static $commands = []; // cli command paths
-
     $found = true;
     foreach ($requirements as $tool => $description) {
         if (!array_key_exists($tool, $commands)) {
@@ -2910,33 +3034,27 @@ function get_commands($requirements = [])
     if ($found) {
         return $commands;
     }
-
     $errors = [];
     foreach ($requirements as $tool => $description) {
-        $cmd = cmd_execute("which $tool");
-        if (empty($cmd)) {
-            $errors[] = "Error: Missing requirement: $tool - " . $description;
-        } else {
+        try {
+            $cmd = cmd_execute("which $tool");
             $commands[$tool] = $cmd[0];
+        } catch (Exception $e) {
+            $errors[] = "Missing requirement '$tool': " . $description . "\n";
         }
     }
-
     if (!empty($errors)) {
-        output(join("\n", $errors) . "\n");
+        debug('Missing requirements:', $errors);
     }
-
     return $commands;
 }
 
-
 /**
  * Execute a command and return streams as an array of
- * stdin, stdout, stderr.
+ * stdin, stdout, stderr
  *
- * @param string $cmd command to execute
- *
+ * @param  string $cmd command to execute
  * @return array|false array $streams | boolean false if failure
- *
  * @see    https://secure.php.net/manual/en/function.proc-open.php
  */
 function shell_execute($cmd)
@@ -2946,7 +3064,7 @@ function shell_execute($cmd)
         [
         ['pipe', 'r'],
         ['pipe', 'w'],
-        ['pipe', 'w'],
+        ['pipe', 'w']
         ], $pipes
     );
     if (is_resource($process)) {
@@ -2955,27 +3073,23 @@ function shell_execute($cmd)
             $streams[] = stream_get_contents($pipes[$p]);
         }
         proc_close($process);
-
         return [
             'stdin'  => $streams[0],
             'stdout' => $streams[1],
-            'stderr' => $streams[2],
+            'stderr' => $streams[2]
         ];
     }
-
     return false;
 }
 
 
 /**
- * Execute a command and return output of stdout or throw exception of stderr.
+ * Execute a command and return output of stdout or throw exception of stderr
  *
- * @param string $cmd   command to execute
- * @param bool   $split split returned results? default on newline
- * @param string $exp   regular expression to preg_split to split on
- *
+ * @param  string $cmd command to execute
+ * @param  boolean $split split returned results? default on newline
+ * @param  string $exp regular expression to preg_split to split on
  * @return mixed string $stdout | Exception if failure
- *
  * @see    shell_execute($cmd)
  */
 function cmd_execute($cmd, $split = true, $exp = "/\n/")
@@ -2988,7 +3102,6 @@ function cmd_execute($cmd, $split = true, $exp = "/\n/")
     if (empty($split) || empty($exp) || empty($data)) {
         return $data;
     }
-
     return preg_split($exp, $data);
 }
 
@@ -3265,10 +3378,58 @@ function to_charset($data, $to_charset = 'UTF-8', $from_charset = 'auto')
 
 
 /**
- * Load a json file and return a php array of the content.
+ * Save data to a file
  *
- * @param string $file the json filename
+ * @param  string $filename the json filename
+ * @param  mixed $data data to save
+ * @param  optional $join string concatenator string
+ * @return mixed result true if success, string if error
+ */
+function save($file, $data, $join = "\n")
+{
+    if (empty($data)) {
+        return 'No data to write to file.';
+    }
+    if (is_array($data)) {
+        $data = array_clear($data);
+        $data = trim(join($join, $data));
+    }
+    if (!file_put_contents($file, $data)) {
+        return 'Failed to write file: '. $file;
+    }
+    return true;
+}
+
+/**
+ * Decode json
  *
+ * @param  mixed $data the json data as a string or array of lines
+ * @return string|array error string or data array
+ */
+function my_json_decode($data)
+{
+    if (is_array($data)) {
+        $data = join("\n", $data);
+    }
+    $data = to_charset($data);
+    $data = json_decode(
+        mb_convert_encoding($data, 'UTF-8', "auto"), true, 512,
+        JSON_OBJECT_AS_ARRAY || JSON_BIGINT_AS_STRING
+    );
+
+    if (null === $data) {
+        return json_last_error_msg();
+    }
+    if (is_array($data)) {
+        $data = to_charset($data);
+    }
+    return $data;
+}
+
+/**
+ * Load a json file and return a php array of the content
+ *
+ * @param  string $file the json filename
  * @return string|array error string or data array
  */
 function json_load($file)
@@ -3276,18 +3437,8 @@ function json_load($file)
     $data = [];
     if (file_exists($file)) {
         $data = to_charset(file_get_contents($file));
-        $data = json_decode(
-            mb_convert_encoding($data, 'UTF-8', 'auto'), true, 512,
-            JSON_OBJECT_AS_ARRAY || JSON_BIGINT_AS_STRING
-        );
+        $data = my_json_decode($data);
     }
-    if (null === $data) {
-        return json_last_error_msg();
-    }
-    if (is_array($data)) {
-        $data = to_charset($data);
-    }
-
     return $data;
 }
 
@@ -3351,23 +3502,16 @@ function json_load_twitter($dir, $filename, $key = 'id')
 
 
 /**
- * Save data array to a json.
+ * Save data array to a json
  *
- * @param string          $file    the json filename
- * @param array           $data    data to save
- * @param string optional $prepend string to prepend in the file
- * @param string optional $append  string to append to the file
- *
- * @return bool true|string TRUE if success or string error message
+ * @param  string $file the json filename
+ * @param  array $data data to save
+ * @param  string optional $prepend string to prepend in the file
+ * @param  string optional $append string to append to the file
+ * @return boolean true|string TRUE if success or string error message
  */
 function json_save($file, $data, $prepend = '', $append = '')
 {
-    if (TEST) {
-        return true;
-    }
-    if (empty($file)) {
-        return 'Missing filename.';
-    }
     if (empty($data)) {
         return 'No data to write to file.';
     }
@@ -3381,10 +3525,8 @@ function json_save($file, $data, $prepend = '', $append = '')
             $error = sprintf("Unknown Error writing file: '%s' (Prepend: '%s', Append: '%s')",
                 $file, $prepend, $append);
         }
-
         return $error;
     }
-
     return true;
 }
 

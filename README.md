@@ -161,6 +161,9 @@ Export the tweet thread 967915766195609600 as grailbird export files, to tweets 
 
 Export the tweet thread 967915766195609600 as a js file test/test.json, and copy media files too:
         tweets.php -v --dir=vijinho --thread=1108500373298442240 --filename=test/test.json --copy-media=test
+
+Export the tweet thread 967915766195609600 as markdown, and copy media files too:
+        tweets.php -d -v --dir=vijinho --thread=967915766195609600 --filename=thread/vijinho_967915766195609600_md/item.md --media-prefix=/vijinho_967915766195609600_md/ --copy-media=thread/vijinho_967915766195609600_md --format=md        
 ```
 
 ## Note

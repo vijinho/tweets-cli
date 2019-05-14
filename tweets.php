@@ -2708,7 +2708,7 @@ if (!empty($output)) {
     if (empty($output_filename)) {
         $output_filename = 'output.' . OUTPUT_FORMAT;
     }
-    $file = $dir . '/' . $output_filename;
+    $file = $output_filename;
 
     switch (OUTPUT_FORMAT) {
         case 'txt':

@@ -1163,7 +1163,7 @@ if (!empty($threads)) {
     get_root_thread:
     $thread_id_before = $thread_id;
     $tweet = $threads[$thread_id];
-    if (array_key_exists($tweet['in_reply_to_status_id'], $tweets)) {
+    if (array_key_exists('in_reply_to_status_id', $tweet) && array_key_exists($tweet['in_reply_to_status_id'], $tweets)) {
         $tweet = $tweets[$tweet['in_reply_to_status_id']];
         $thread_id = $tweet['id'];
         $threads[$thread_id] = $tweet;
@@ -2121,7 +2121,6 @@ if (!empty($tweets) && is_array($tweets)) {
                             }
                             break;
                         default:
-                            continue;
                             break;
                     }
 

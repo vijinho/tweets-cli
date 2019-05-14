@@ -142,7 +142,6 @@ Import twitter grailbird files,check URL and export new grailbird files:
         tweets.php -v -g=www/vijinho/ --grailbird-import=import/data/js/tweets --urls-check
 
 Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:
-
         tweets.php -v -o -l -u --grailbird-import=import/data/js/tweets -g=export/grailbird
 
 Export only tweets which have the 'withheld_in_countries' key to export/grailbird folder:

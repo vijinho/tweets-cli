@@ -282,7 +282,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\nImport twitter grailbird files,check URL and export new grailbird files:",
             "\ttweets.php -v -g=www/vijinho/ --grailbird-import=import/data/js/tweets --urls-check",
         "\nImport and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:",
-            "\n\ttweets.php -v -o -l -u --grailbird-import=import/data/js/tweets -g=export/grailbird",
+            "\ttweets.php -v -o -l -u --grailbird-import=import/data/js/tweets -g=export/grailbird",
         "\nExport only tweets which have the 'withheld_in_countries' key to export/grailbird folder:",
             "\ttweets.php -v -u -o --keys-required='withheld_in_countries' -g=export/grailbird",
         "\nExport only tweets containing text 'youtu':",

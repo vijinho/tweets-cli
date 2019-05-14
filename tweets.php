@@ -49,6 +49,7 @@ $options = getopt('hvdtf:g:i:auolxr:k:',
     'format:',
     'filename:',
     'grailbird:',
+    'copy-media:',
     'grailbird-media',
     'grailbird-import:',
     'list',
@@ -94,6 +95,7 @@ foreach ([
  'debug'                   => ['d', 'debug'],
  'test'                    => ['t', 'test'],
  'grailbird'               => ['g', 'grailbird'],
+ 'copy-media'              => [null, 'copy-media'],
  'grailbird-media'         => [null, 'grailbird-media'],
  'grailbird-import'        => [null, 'grailbird-import'],
  'list'                    => [null, 'list'],
@@ -158,7 +160,10 @@ if ($do['thread']) {
     }
     $do['thread'] = $thread_id;
 }
-ksort($do);
+if (!empty($do['copy-media'])) {
+    $do['copy-media'] = $options['copy-media'];
+    $do['local'] = 1;
+}
 
 //-----------------------------------------------------------------------------
 // defines (int) - forces 0 or 1 value
@@ -205,6 +210,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t-f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'",
         "\t     --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.",
         "\t-g,  -g={dir}        Generate json output files compatible with the standard twitter export feature to dir",
+        "\t     --copy-media=            Copy local media files to the given folder",
         "\t     --grailbird-media        Copy local media files to grailbird folder, using same file path",
         "\t     --media-prefix           Prefix to local media folder instead of direct file:// path, e.g. '/' if media folders are to be replicated under webroot for serving via web and prefixing a URL path, implies --local",
         "\t     --list                   Only list all files in export folder and halt - filename",
@@ -293,6 +299,8 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\ttweets.php -v -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --media-only",
         "\nExport the tweet thread 967915766195609600 as grailbird export files, to tweets to thread.json and folder called thread:",
             "\ttweets.php -v --thread=967915766195609600 --filename=www/thread/data/js/thread.json -g=www/thread/ --media-prefix='/thread/' --grailbird-media",
+        "\nExport the tweet thread 967915766195609600 as a js file test/test.json, and copy media files too:",
+            "\ttweets.php -v --dir=vijinho --thread=1108500373298442240 --filename=test/test.json --copy-media=test",
     ]) . "\n";
 
     // goto jump here if there's a problem
@@ -844,6 +852,10 @@ if ($do['grailbird']) {
     }
     $grailbird_dir = realpath($grailbird_dir);
     verbose(sprintf('GRAILBIRD OUTPUT DIR: %s', $grailbird_dir));
+}
+// copy files to target
+if ($do['grailbird-media']) {
+    $do['copy-media'] = $grailbird_dir;
 }
 
 //-----------------------------------------------------------------------------
@@ -2535,9 +2547,8 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
                 $tweet[$k] = (int) $tweet[$k];
             }
         }
-
-        // copy files to target
-        if ($do['grailbird-media']) {
+/*
+        if (!empty($do['copy-media'])) {
             foreach (['videos', 'files', 'images'] as $type) {
                 if (!array_key_exists($type, $tweet) || empty($tweet[$type])) {
                     continue;
@@ -2549,10 +2560,10 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
                     }
                     // remove source dir path, check it does not match the media prefix
                     if ($dir !== $media_prefix) {
-                        $to = $grailbird_dir . '/' . str_replace("$dir/", '',
+                        $to = $do['copy-media'] . '/' . str_replace("$dir/", '',
                                 $from);
                     } else {
-                        $to = $grailbird_dir . '/' . $media_prefix . '/' . str_replace("$dir/",
+                        $to = $do['copy-media'] . '/' . $media_prefix . '/' . str_replace("$dir/",
                                 '', $from);
                     }
                     $to = str_replace('//', '', $to);
@@ -2567,7 +2578,7 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
                         //debug("File exists, not copying: $to");
                         continue;
                     }
-                    debug("Copying media file to grailbird folder:\n\t$from\n\t$to");
+                    debug("Copying media file to copy media folder:\n\t$from\n\t$to");
                     if (!copy($from, $to)) {
                         $errors[] = "Error copying $from => $to";
                     }
@@ -2576,6 +2587,7 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
                 unset($tweet[$type]);
             }
         }
+*/
         $month_files[$month_file][] = $tweet;
     }
 
@@ -2679,6 +2691,52 @@ if ($do['keys-filter']) {
                 }
                 $tweets[$tweet_id] = $tweet;
             }
+        }
+    }
+}
+
+if (!empty($do['copy-media'])) {
+    if (empty($media_prefix)) {
+        $media_prefix = '';
+    }
+    foreach ($tweets as $tweet_id => $tweet_default) {
+        $tweet = $tweet_default; // need to modify this to match grailbird files
+        foreach (['videos', 'files', 'images'] as $type) {
+            if (!array_key_exists($type, $tweet) || empty($tweet[$type])) {
+                continue;
+            }
+            foreach ($tweet[$type] as $filename => $from) {
+                if (!file_exists($from)) {
+                    $errors[] = "Source file does not exist $from";
+                    continue;
+                }
+                // remove source dir path, check it does not match the media prefix
+                if ($dir !== $media_prefix) {
+                    $to = $do['copy-media'] . '/' . str_replace("$dir/", '',
+                            $from);
+                } else {
+                    $to = $do['copy-media'] . '/' . $media_prefix . '/' . str_replace("$dir/",
+                            '', $from);
+                }
+                $to = str_replace('//', '', $to);
+                $i  = strrpos($to, '/');
+                if (false !== $i) {
+                    $target_dir = substr($to, 0, $i);
+                    if (!is_dir($target_dir)) {
+                        mkdir($target_dir, 0777, true);
+                    }
+                }
+                if (file_exists($to)) {
+                    //debug("File exists, not copying: $to");
+                    continue;
+                }
+                debug("Copying media file to copy media folder:\n\t$from\n\t$to");
+                if (!copy($from, $to)) {
+                    $errors[] = "Error copying $from => $to";
+                }
+            }
+            // do not store local filenames in tweet
+            unset($tweet[$type]);
         }
     }
 }

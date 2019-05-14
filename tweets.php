@@ -204,7 +204,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t     --format={json}          Output format for script data: txt|php|json (default)",
         "\t-f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'",
         "\t     --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.",
-        "\t-g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir",
+        "\t-g,  -g={dir}        Generate json output files compatible with the standard twitter export feature to dir",
         "\t     --grailbird-media        Copy local media files to grailbird folder, using same file path",
         "\t     --media-prefix           Prefix to local media folder instead of direct file:// path, e.g. '/' if media folders are to be replicated under webroot for serving via web and prefixing a URL path, implies --local",
         "\t     --list                   Only list all files in export folder and halt - filename",
@@ -247,56 +247,52 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\ttweets.php --delete --dupes",
         "\nShow total tweets in tweets file:",
             "\ttweets.php --tweets-count --format=txt",
-        "\nWrite all users mentioned in tweets to file 'users.json':",
+        "\nWrite all users mentioned in tweets to default file 'users.json':",
             "\ttweets.php --list-users",
         "\nShow javascript files in backup folder:",
-            "\ttweets.php --list-js --verbose",
+            "\ttweets.php -v --list-js",
         "\nResolve all URLs in 'tweet.js' file, writing output to 'tweet.json':",
             "\ttweets.php -v -u --filename=tweet.json",
         "\nResolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':",
-            "\ttweets.php -u --filename=tweet.json --grailbird",
-        "\nGet tweets, only id, created and text keys:",
-            "\ttweets.php -v -o -u --keys-filter=id,created_at,text",
-        "\nGet tweets from 1 Jan 2017 to 'last friday':",
-            "\ttweets.php -v --date-from '2017-01-01' --date-to='last friday' -o -u",
-        "\nFilter tweet text on word 'hegemony' since last year:",
-            "\ttweets.php -v -o -u -l -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony",
-        "\nGenerate grailbird files with expanded/resolved URLs:",
-            "\ttweets.php -v -u --grailbird",
-        "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:",
-            "\ttweets.php -v -o -u --grailbird",
-        "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:",
-            "\ttweets.php -v -o -u -l --grailbird",
-        "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:",
-            "\ttweets.php -v -o -u -l --grailbird --no-retweets",
-        "\nExtract the first couple of words of the tweet and name the saved regexp 'words':",
-            "\ttweets.php -v -o -u -l -x --grailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words",
-        "\nImport grailbird files from 'import/data/js/tweets':",
-            "\ttweets.php -v --grailbird-import=import/data/js/tweets",
-        "\nImport and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:",
-            "\n\ttweets.php -v -o -l -u --grailbird-import=import/data/js/tweets --grailbird",
+            "\ttweets.php -u --filename=tweet.json -g=export/grailbird",
+        "\nGet tweets from 1 Jan 2017 to 'last friday', only id, created and text keys:",
+            "\ttweets.php -d -v -o -u --keys-filter=id,created_at,text,files --date-from '2017-01-01' --date-to='last friday'",
         "\nList URLs for which there are missing local media files:",
-            "\ttweets.php -v --list-missing-media --verbose",
+            "\ttweets.php -v --list-missing-media",
         "\nDownload files from URLs for which there are missing local media files:",
-            "\ttweets.php -v --download-missing-media --verbose",
+            "\ttweets.php -v --download-missing-media",
         "\nOrganize 'tweet_media' folder into year/month subfolders:",
-            "\ttweets.php --organize-media",
-        "\nExport only tweets which have the 'withheld_in_countries' key to export/grailbird folder:",
-            "\ttweets.php -v -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'",
+            "\ttweets.php -v --organize-media",
         "\nPrefix the local media with to a URL path 'assets':",
             "\ttweets.php -v --media-prefix='/assets'",
-        "\nExport tweets with local media files to web folder:",
-            "\ttweets.php -v --dir=vijinho --grailbird-import=vijinho/import/data/js/tweets --grailbird=vijinho/www/vijinho/ --media-prefix='/vijinho/' --grailbird-media",
-        "\nExport only media tweets only':",
-            "\ttweets.php -v --grailbird=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --media-only",
-        "\nExport only no mentions, no RTs':",
-            "\ttweets.php -v --grailbird=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --no-retweets --no-mentions",
+        "\nGenerate grailbird files with expanded/resolved URLs:",
+            "\ttweets.php -v -u -g=export/grailbird",
+        "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:",
+            "\ttweets.php -v -o -u -g=export/grailbird",
+        "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:",
+            "\ttweets.php -v -o -u -l -g=export/grailbird",
+        "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:",
+            "\ttweets.php -v -o -u -l -g=export/grailbird --no-retweets",
+        "\nFilter tweet text on word 'hegemony' since last year, exporting grailbird:",
+            "\ttweets.php -v -o -u -l -g=export/grailbird --regexp='/(hegemony)/i' --regexp-save=hegemony",
+        "\nExtract the first couple of words of the tweet and name the saved regexp 'words':",
+            "\ttweets.php -v -o -u -l -x -g=export/grailbird --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words",
+        "\nImport grailbird tweets and export tweets with local media files to web folder:",
+            "\ttweets.php -v -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --grailbird-import=vijinho/import/data/js/tweets",
+        "\nImport twitter grailbird files,check URL and export new grailbird files:",
+            "\ttweets.php -v -g=www/vijinho/ --grailbird-import=import/data/js/tweets --urls-check",
+        "\nImport and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:",
+            "\n\ttweets.php -v -o -l -u --grailbird-import=import/data/js/tweets -g=export/grailbird",
+        "\nExport only tweets which have the 'withheld_in_countries' key to export/grailbird folder:",
+            "\ttweets.php -v -u -o --keys-required='withheld_in_countries' -g=export/grailbird",
         "\nExport only tweets containing text 'youtu':",
-            "\ttweets.php -v --regexp='/youtu/' --grailbird=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media",
-        "\nImport twitter grailbird files and check every URL and export new grailbird files:",
-            "\ttweets.php -v --grailbird=www/vijinho/ --grailbird-import=import/data/js/tweets --urls-check-source",
+            "\ttweets.php -v --regexp='/youtu/' -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media",
+        "\nExport only no mentions, no RTs':",
+            "\ttweets.php -v -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --no-retweets --no-mentions",
+        "\nExport only media tweets only':",
+            "\ttweets.php -v -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --media-only",
         "\nExport the tweet thread 967915766195609600 as grailbird export files, to tweets to thread.json and folder called thread:",
-            "\ttweets.php -v --thread=967915766195609600 --filename=www/thread/data/js/thread.json --grailbird=www/thread/ --media-prefix='/thread/' --grailbird-media",
+            "\ttweets.php -v --thread=967915766195609600 --filename=www/thread/data/js/thread.json -g=www/thread/ --media-prefix='/thread/' --grailbird-media",
     ]) . "\n";
 
     // goto jump here if there's a problem
@@ -836,7 +832,6 @@ if ($do['grailbird']) {
     } elseif (!empty($options['grailbird'])) {
         $grailbird_dir = $options['grailbird'];
     }
-
     if (empty($grailbird_dir)) {
         $grailbird_dir = $dir . 'export/grailbird';
     }
@@ -1127,14 +1122,19 @@ if (!empty($tweets) && is_array($tweets)) {
         // if using therefore with --grailbird-import it will get executed
         if (array_key_exists('retweeted_status', $tweet)) {
             $user        = $tweet['retweeted_status']['user'];
-            $screen_name = $user['screen_name'];
-            if (!array_key_exists($screen_name, $users)) {
-                debug(sprintf('Adding entry for user %d: @%s (%s)', $user['id'],
-                        $screen_name, $user['name']));
-                $users[$user['screen_name']] = $user;
-            } else {
-                $users[$user['screen_name']] = array_replace_recursive($users[$screen_name],
-                    $user);
+            if (!empty($user) && array_key_exists('screen_name', $user)) {
+                $screen_name = $user['screen_name'];
+                if (!is_string($screen_name)) {
+                    $screen_name = (int) $screen_name;
+                }
+                if (!array_key_exists($screen_name, $users)) {
+                    debug(sprintf('Adding entry for user %d: @%s (%s)', $user['id'],
+                            $screen_name, $user['name']));
+                    $users[$user['screen_name']] = $user;
+                } else {
+                    $users[$user['screen_name']] = array_replace_recursive($users[$screen_name],
+                        $user);
+                }
             }
         }
 
@@ -1144,7 +1144,11 @@ if (!empty($tweets) && is_array($tweets)) {
                 $tweet['entities'])) {
             $user_mentions = $tweet['entities']['user_mentions'];
             foreach ($user_mentions as $i => $user) {
-                if (array_key_exists($user['screen_name'], $users)) {
+                $screen_name = $user['screen_name'];
+                if (!is_string($screen_name)) {
+                    $screen_name = (int) $screen_name;
+                }
+                if (array_key_exists($screen_name, $users)) {
                     continue;
                 }
                 unset($user['indices']);

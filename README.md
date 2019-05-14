@@ -40,7 +40,7 @@ Usage: php tweets.php
      --format={json}          Output format for script data: txt|php|json (default)
 -f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'
      --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.
--g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir
+-g,  -g={dir}        Generate json output files compatible with the standard twitter export feature to dir
      --grailbird-media        Copy local media files to grailbird folder, using same file path
      --media-prefix           Prefix to local media folder instead of direct file:// path, e.g. '/' if media folders are to be replicated under webroot for serving via web and prefixing a URL path, implies --local
      --list                   Only list all files in export folder and halt - filename
@@ -90,81 +90,76 @@ Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}
 Show total tweets in tweets file:
         tweets.php --tweets-count --format=txt
 
-Write all users mentioned in tweets to file 'users.json':
+Write all users mentioned in tweets to default file 'users.json':
         tweets.php --list-users
 
 Show javascript files in backup folder:
-        tweets.php --list-js --verbose
+        tweets.php -v --list-js
 
 Resolve all URLs in 'tweet.js' file, writing output to 'tweet.json':
         tweets.php -v -u --filename=tweet.json
 
 Resolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':
-        tweets.php -u --filename=tweet.json --grailbird
+        tweets.php -u --filename=tweet.json -g=export/grailbird
 
-Get tweets, only id, created and text keys:
-        tweets.php -v -o -u --keys-filter=id,created_at,text
-
-Get tweets from 1 Jan 2017 to 'last friday':
-        tweets.php -v --date-from '2017-01-01' --date-to='last friday' -o -u
-
-Filter tweet text on word 'hegemony' since last year:
-        tweets.php -v -o -u -l -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony
-
-Generate grailbird files with expanded/resolved URLs:
-        tweets.php -v -u --grailbird
-
-Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:
-        tweets.php -v -o -u --grailbird
-
-Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:
-        tweets.php -v -o -u -l --grailbird
-
-Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:
-        tweets.php -v -o -u -l --grailbird --no-retweets
-
-Extract the first couple of words of the tweet and name the saved regexp 'words':
-        tweets.php -v -o -u -l -x --grailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words
-
-Import grailbird files from 'import/data/js/tweets':
-        tweets.php -v --grailbird-import=import/data/js/tweets
-
-Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:
-
-        tweets.php -v -o -l -u --grailbird-import=import/data/js/tweets --grailbird
+Get tweets from 1 Jan 2017 to 'last friday', only id, created and text keys:
+        tweets.php -d -v -o -u --keys-filter=id,created_at,text,files --date-from '2017-01-01' --date-to='last friday'
 
 List URLs for which there are missing local media files:
-        tweets.php -v --list-missing-media --verbose
+        tweets.php -v --list-missing-media
 
 Download files from URLs for which there are missing local media files:
-        tweets.php -v --download-missing-media --verbose
+        tweets.php -v --download-missing-media
 
 Organize 'tweet_media' folder into year/month subfolders:
-        tweets.php --organize-media
-
-Export only tweets which have the 'withheld_in_countries' key to export/grailbird folder:
-        tweets.php -v -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'
+        tweets.php -v --organize-media
 
 Prefix the local media with to a URL path 'assets':
         tweets.php -v --media-prefix='/assets'
 
-Export tweets with local media files to web folder:
-        tweets.php -v --dir=vijinho --grailbird-import=vijinho/import/data/js/tweets --grailbird=vijinho/www/vijinho/ --media-prefix='/vijinho/' --grailbird-media
+Generate grailbird files with expanded/resolved URLs:
+        tweets.php -v -u -g=export/grailbird
 
-Export only media tweets only':
-        tweets.php -v --grailbird=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --media-only
+Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:
+        tweets.php -v -o -u -g=export/grailbird
 
-Export only no mentions, no RTs':
-        tweets.php -v --grailbird=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --no-retweets --no-mentions
+Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:
+        tweets.php -v -o -u -l -g=export/grailbird
+
+Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:
+        tweets.php -v -o -u -l -g=export/grailbird --no-retweets
+
+Filter tweet text on word 'hegemony' since last year, exporting grailbird:
+        tweets.php -v -o -u -l -g=export/grailbird --regexp='/(hegemony)/i' --regexp-save=hegemony
+
+Extract the first couple of words of the tweet and name the saved regexp 'words':
+        tweets.php -v -o -u -l -x -g=export/grailbird --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words
+
+Import grailbird tweets and export tweets with local media files to web folder:
+        tweets.php -v -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --grailbird-import=vijinho/import/data/js/tweets
+
+Import twitter grailbird files,check URL and export new grailbird files:
+        tweets.php -v -g=www/vijinho/ --grailbird-import=import/data/js/tweets --urls-check
+
+Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:
+
+        tweets.php -v -o -l -u --grailbird-import=import/data/js/tweets -g=export/grailbird
+
+Export only tweets which have the 'withheld_in_countries' key to export/grailbird folder:
+        tweets.php -v -u -o --keys-required='withheld_in_countries' -g=export/grailbird
 
 Export only tweets containing text 'youtu':
-        tweets.php -v --regexp='/youtu/' --grailbird=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media
+        tweets.php -v --regexp='/youtu/' -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media
 
-Import twitter grailbird files and check every URL and export new grailbird files:
-        tweets.php -v --grailbird=www/vijinho/ --grailbird-import=import/data/js/tweets --urls-check-source
+Export only no mentions, no RTs':
+        tweets.php -v -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --no-retweets --no-mentions
+
+Export only media tweets only':
+        tweets.php -v -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --media-only
 
 Export the tweet thread 967915766195609600 as grailbird export files, to tweets to thread.json and folder called thread:
-        tweets.php -v --thread=967915766195609600 --filename=www/thread/data/js/thread.json --grailbird=www/thread/ --media-prefix='/thread/' --grailbird-media
+        tweets.php -v --thread=967915766195609600 --filename=www/thread/data/js/thread.json -g=www/thread/ --media-prefix='/thread/' --grailbird-media
+
 ```
 
 ## Note
@@ -247,7 +242,7 @@ Or run the whole create step again with URL resolving:
 
 This will create the YYYY-MM.js files with the resolved URLs in a folder structure as with the original twitter download in `export/grailbird`.
 
-    `php cli/tweets.php --dir=euromoan --dir-output=euromoan --filename=tweet.json -itweet.js --filename=tweet.json -u -o --grailbird=euromoan/www/euromoan --debug`
+    `php cli/tweets.php --dir=euromoan --dir-output=euromoan --filename=tweet.json -itweet.js --filename=tweet.json -u -o -g=euromoan/www/euromoan --debug`
 
 #### Missing local `tweet_media` files
 
@@ -267,7 +262,7 @@ To organize the `tweet_media` files into subfolders:
 
 Files will be exported to `euromoan/export/grailbird` in the correct folder structure to overwrite/replace the original download or use as data files for [@vijinho/tweets-gb](https://github.com/vijinho/tweets-gb)
 
-    `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -u -o -l --grailbird=euromoan/www/euromoan --debug`
+    `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -u -o -l -g=euromoan/www/euromoan --debug`
 
 #### Fully check all URLs
 
@@ -284,7 +279,7 @@ Assuming your target data grailbird folder (containing files from [tweets-gb](ht
 This will process tweets in `euromoan`, exporting data and media files to `euromoan/www/euromoan` and the media file URLs will be prefixed with `/euromoan/` such that browsing from the webroot `euromoan/www` and starting a webserver there (with php) http://127.0.0.1:9012 will reference the local files under the webroot path `/euromoan/path/to/file`
 
 ```
-$ php cli/tweets.php --dir=euromoan --grailbird=euromoan/www/euromoan/ --grailbird-media  --media-prefix='/euromoan/' --debug
+$ php cli/tweets.php --dir=euromoan -g=euromoan/www/euromoan/ --grailbird-media  --media-prefix='/euromoan/' --debug
 $ cd euromoan/www
 $ php -S 127.0.0.1:9012
 ```

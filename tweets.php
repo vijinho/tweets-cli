@@ -84,6 +84,7 @@ $options = getopt('hvdtf:g:i:auolxr:k:',
     'keys-required:',
     'keys-remove:',
     'keys-filter:',
+    'thread:',
     ]);
 
 $do = [];
@@ -123,6 +124,7 @@ foreach ([
  'keys-required'           => [null, 'keys-required'],
  'keys-remove'             => ['r', 'keys-remove'],
  'keys-filter'             => ['k', 'keys-filter'],
+ 'thread'                  => [null, 'thread'],
 ] as $i => $opts) {
     $do[$i] = (int) (array_key_exists($opts[0], $options) || array_key_exists($opts[1],
             $options));
@@ -148,6 +150,13 @@ if (array_key_exists('urls-check', $options)) {
 }
 if (array_key_exists('urls-resolve', $options)) {
     $do['urls-expand']      = $options['urls-expand'] = 1;
+}
+if ($do['thread']) {
+    $thread_id = (int) $options['thread'];
+    if ($thread_id < 1) {
+        $thread_id = 0;
+    }
+    $do['thread'] = $thread_id;
 }
 ksort($do);
 
@@ -230,6 +239,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t-k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)",
         "\t     --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
         "\t     --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given",
+        "\t     --thread=id              Returned tweets for the thread with id",
         "\nExamples:",
         "\nReport duplicate tweet media files and output to 'dupes.json':\n\n\tphp tweets-tweets.php -fdupes.json --dupes",
         "\nShow total tweets in tweets file:\n\n\tphp tweets.php --tweets-count --verbose",
@@ -258,6 +268,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\nExport only tweets from file 'tweet.json', no mentions, no RTs':\n\n\tphp ../cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --grailbird=www/vijinho/ --local --grailbird-media --media-prefix='/vijinho/'  --no-retweets --no-mentions",
         "\nExport only tweets from file 'tweet.json', containing text 'youtu':\n\n\tphp ../cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --grailbird=www/vijinho/ --local --grailbird-media --media-prefix='/vijinho/' --regexp='/youtu/'",
         "\nImport twitter grailbird files and check every URL and export new grailbird files: cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --grailbird=www/vijinho/ --grailbird-import=import/data/js/tweets --urls-check-source",
+        "\nExport the tweet thread 967915766195609600 as grailbird export files, to tweets to thread.json and folder called thread:\n\n\tphp ../cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --filename=www/thread/data/js/thread.json --grailbird-media --grailbird=www/thread/ --media-prefix='/thread/' --thread=967915766195609600",
     ]) . "\n";
 
     // goto jump here if there's a problem
@@ -1113,9 +1124,83 @@ if (!empty($tweets) && is_array($tweets)) {
             }
         }
 
+        // check thread
+        if (!empty($do['thread']) && !empty($thread_id) && $tweet_id == $thread_id) {
+            verbose("Found tweet for thread: $thread_id");
+            $threads[$tweet_id] = $tweet;
+        }
         $tweets[$tweet_id] = $tweet;
     }
     $tweets_count = count($tweets);
+}
+
+//-----------------------------------------------------------------------------
+// Get tweet thread
+
+if (!empty($do['thread']) && empty($threads)) {
+    $errors[] = "Could not find tweet for thread: $thread_id";
+    goto errors;
+}
+
+if (!empty($threads)) {
+
+    function get_tweet_replies($id, $tweets) {
+        $return = [];
+        $return[$id] = $tweets[$id];
+        foreach ($tweets as $tweet_id => $tweet) {
+            if (!array_key_exists('in_reply_to_status_id', $tweet)) {
+                continue;
+            } else if ($tweet['in_reply_to_status_id'] == $id) {
+                $return[$tweet_id] = $tweet;
+            }
+        }
+        return $return;
+    }
+
+    debug("Working to get tweets for thread: $thread_id", $threads[$thread_id]);
+
+    // check is not in reply to
+    get_root_thread:
+    $thread_id_before = $thread_id;
+    $tweet = $threads[$thread_id];
+    if (array_key_exists($tweet['in_reply_to_status_id'], $tweets)) {
+        $tweet = $tweets[$tweet['in_reply_to_status_id']];
+        $thread_id = $tweet['id'];
+        $threads[$thread_id] = $tweet;
+    }
+    if ($thread_id_before !== $thread_id)
+        goto get_root_thread;
+
+    debug("Working to get tweets for thread: $thread_id", $threads[$thread_id]);
+
+    $done = [];
+    $threads = get_tweet_replies($thread_id, $tweets);
+    get_threads:
+        $count = count($threads);
+        $do_threads = $threads;
+        foreach ($do_threads as $tweet_id => $tweet) {
+            if (array_key_exists($tweet_id, $done))
+                continue;
+            $replies = get_tweet_replies($tweet_id, $tweets);
+            foreach ($replies as $id => $t) {
+                if (!array_key_exists($id, $threads))
+                    $threads[$id] = $t;
+            }
+            $done[$tweet_id] = $tweet_id;
+        }
+        if (count($threads) > $count)
+            goto get_threads;
+
+
+        if (empty($threads) || count($threads) <= 1) {
+            $errors[] = "Could not build thread for thread: $thread_id";
+            goto errors;
+        }
+
+        ksort($threads);
+        $tweets = $threads;
+        $tweets_count = count($tweets);
+        debug("Found tweets for thread: $thread_id", $tweets);
 }
 
 verbose(sprintf('Tweets available for further processing: %d', $tweets_count));

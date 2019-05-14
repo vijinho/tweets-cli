@@ -31,125 +31,141 @@ This is intentionally written as a stand-alone self-contained command-line php s
 ```
 Usage: php tweets.php
 
-        -h,  --help                   Display this help and exit
-        -v,  --verbose                Run in verbose mode
-        -d,  --debug                  Run in debug mode (implies also -v, --verbose)
-        -t,  --test                   Run in test mode, show what would be done, NO filesystem changes.
-             --dir={.}                Directory of unzipped twitter backup files (current dir if not specified)
-             --dir-output={.}         Directory to output files in (default to -dir above)
-             --format={json}          Output format for script data: txt|php|json (default)
-        -f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'
-             --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.
-        -g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir
-             --grailbird-media        Copy local media files to grailbird folder, using same file path
-             --media-prefix           Prefix to local media folder instead of direct file:// path, e.g. '/' if media folders are to be replicated under webroot for serving via web and prefixing a URL path, implies --local
-             --list                   Only list all files in export folder and halt - filename
-             --list-js                Only List all javascript files in export folder and halt
-             --list-images            Only list all image files in export folder and halt
-             --list-videos            Only list all video files in export folder and halt
-             --list-users             Only list all users in tweets, (default filename 'users.json') and halt
-             --list-missing-media     List media URLs for which no local file exists and halt (implies --local)
-             --organize-media         Organize local downloaded media, for example split folder into date/month subfolders
-             --download-missing-media Download missing media (from --list-missing-media) and halt, e.g.. missing media files (implies --local)
-             --list-profile-images    Only list users profile images, (in filename 'users.json') and halt
-             --download-profile-images  WARNING: This can be a lot of users! Download profile images.
-             --tweets-count           Only show the total number of tweets and halt
-        -i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'
-        -a,  --tweets-all             Get all tweets (further operations below will depend on this)
-             --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php
-             --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php
-             --no-retweets            Drop re-tweets (RT's)
-             --no-mentions            Drop tweets starting with mentions
-             --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)
-        -u,  --urls-resolve           Unshorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand
-             --urls-check             Check every single target url (except for twitter.com and youtube.com) and update - implies --urls-resolve
-             --urls-check-source      Check failed source urls - implies --urls-resolve
-             --urls-check-force       Forcibly checks every single failed (numeric) source and target url and update - implies --urls-check
-        -o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)
-        -l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)
-        -x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files
-             --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!
-             --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys
-        -r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')
-        -k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)
-             --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php
-             --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given
+-h,  --help                   Display this help and exit
+-v,  --verbose                Run in verbose mode
+-d,  --debug                  Run in debug mode (implies also -v, --verbose)
+-t,  --test                   Run in test mode, show what would be done, NO filesystem changes.
+     --dir={.}                Directory of unzipped twitter backup files (current dir if not specified)
+     --dir-output={.}         Directory to output files in (default to -dir above)
+     --format={json}          Output format for script data: txt|php|json (default)
+-f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'
+     --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.
+-g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir
+     --grailbird-media        Copy local media files to grailbird folder, using same file path
+     --media-prefix           Prefix to local media folder instead of direct file:// path, e.g. '/' if media folders are to be replicated under webroot for serving via web and prefixing a URL path, implies --local
+     --list                   Only list all files in export folder and halt - filename
+     --list-js                Only List all javascript files in export folder and halt
+     --list-images            Only list all image files in export folder and halt
+     --list-videos            Only list all video files in export folder and halt
+     --list-users             Only list all users in tweets, (default filename 'users.json') and halt
+     --list-missing-media     List media URLs for which no local file exists and halt (implies --local)
+     --organize-media         Organize local downloaded media, for example split folder into date/month subfolders
+     --download-missing-media Download missing media (from --list-missing-media) and halt, e.g.. missing media files (implies --local)
+     --list-profile-images    Only list users profile images, (in filename 'users.json') and halt
+     --download-profile-images  WARNING: This can be a lot of users! Download profile images.
+     --tweets-count           Only show the total number of tweets and halt
+-i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js' or 'tweet.json' (priority if exists)
+-a,  --tweets-all             Get all tweets (further operations below will depend on this)
+     --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php
+     --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php
+     --no-retweets            Drop re-tweets (RT's)
+     --no-mentions            Drop tweets starting with mentions
+     --media-only             Only media tweets
+     --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)
+-u,  --urls-resolve           Unshorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand
+     --urls-check             Check every single target url (except for twitter.com and youtube.com) and update - implies --urls-resolve
+     --urls-check-source      Check failed source urls - implies --urls-resolve
+     --urls-check-force       Forcibly checks every single failed (numeric) source and target url and update - implies --urls-check
+-o,  --offline                Do not go-online when performing tasks (only use local files for url resolution for example)
+-l,  --local                  Fetch local file information (if available) (new attributes: images,videos,files)
+-x,  --delete                 DANGER! At own risk. Delete files where savings can occur (i.e. low-res videos of same video), run with -t to test only and show files
+     --dupes                  List (or delete) duplicate files. Requires '-x/--delete' option to delete (will rename duplicated file from '{tweet_id}-{id}.{ext}' to '{id}.{ext}). Preview with '--test'!
+     --keys-required=k1,k2,.  Returned tweets which MUST have all of the specified keys
+-r,  --keys-remove=k1,k2,.    List of keys to remove from tweets, comma-separated (e.g. 'sizes,lang,source,id_str')
+-k,  --keys-filter=k1,k2,.    List of keys to only show in output - comma, separated (e.g. id,created_at,text)
+     --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php
+     --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given
+     --thread=id              Returned tweets for the thread with id
 ```
 
 ## Usage Examples
 
+```
 Report duplicate tweet media files and output to 'dupes.json':
-        `php tweets-tweets.php -fdupes.json --dupes`
-
-Show total tweets in tweets file:
-        `php tweets.php --tweets-count --verbose`
-
-Write all users mentioned in tweets to file 'users.json':
-        `php tweets.php --list-users --verbose`
-
-Show javascript files in backup folder:
-        `php tweets.php --list-js --verbose`
-
-Resolve all URLs in 'tweet.js' file, writing output to 'tweet.json':
-        `php tweets.php --tweets-all --urls-resolve --filename=tweet.json`
-
-Resolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':
-        `php tweets.php --tweets-all --urls-resolve --filename=tweet.json --grailbird=grailbird`
-
-Get tweets, only id, created and text keys:
-        `php tweets.php -v -a -o -u --keys-filter=id,created_at,text`
-
-Get tweets from 1 Jan 2017 to 'last friday':
-        `php tweets.php -v -a -o -u --date-from '2017-01-01' --date-to='last friday'`
-
-Filter tweet text on word 'hegemony' since last year
-         `php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony`
-
-Generate grailbird files with expanded/resolved URLs:
-        `php tweets.php --tweets-all --verbose --urls-expand --urls-resolve --grailbird=grailbird`
-
-Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:
-        `php tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --grailbird=grailbird`
-
-Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:
-        `php tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --grailbird=grailbird`
-
-Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:
-        `php tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird`
+        tweets.php -fdupes.json --dupes
 
 Delete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':
-        `php tweets-tweets.php --delete --dupes`
+        tweets.php --delete --dupes
+
+Show total tweets in tweets file:
+        tweets.php --tweets-count --format=txt
+
+Write all users mentioned in tweets to file 'users.json':
+        tweets.php --list-users
+
+Show javascript files in backup folder:
+        tweets.php --list-js --verbose
+
+Resolve all URLs in 'tweet.js' file, writing output to 'tweet.json':
+        tweets.php -v -u --filename=tweet.json
+
+Resolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':
+        tweets.php -u --filename=tweet.json --grailbird
+
+Get tweets, only id, created and text keys:
+        tweets.php -v -o -u --keys-filter=id,created_at,text
+
+Get tweets from 1 Jan 2017 to 'last friday':
+        tweets.php -v --date-from '2017-01-01' --date-to='last friday' -o -u
+
+Filter tweet text on word 'hegemony' since last year:
+        tweets.php -v -o -u -l -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony
+
+Generate grailbird files with expanded/resolved URLs:
+        tweets.php -v -u --grailbird
+
+Generate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:
+        tweets.php -v -o -u --grailbird
+
+Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:
+        tweets.php -v -o -u -l --grailbird
+
+Generate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:
+        tweets.php -v -o -u -l --grailbird --no-retweets
 
 Extract the first couple of words of the tweet and name the saved regexp 'words':
-        `tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words`
+        tweets.php -v -o -u -l -x --grailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words
 
 Import grailbird files from 'import/data/js/tweets':
-        `php tweets.php --grailbird-import=import/data/js/tweets --verbose`
+        tweets.php -v --grailbird-import=import/data/js/tweets
 
 Import and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:
-        `php tweets-tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose`
+
+        tweets.php -v -o -l -u --grailbird-import=import/data/js/tweets --grailbird
 
 List URLs for which there are missing local media files:
-        `php tweets.php --list-missing-media --verbose`
+        tweets.php -v --list-missing-media --verbose
 
 Download files from URLs for which there are missing local media files:
-        `php tweets.php -a --download-missing-media --verbose`
+        tweets.php -v --download-missing-media --verbose
 
 Organize 'tweet_media' folder into year/month subfolders:
-        `php tweets-tweets.php --organize-media`
+        tweets.php --organize-media
 
 Export only tweets which have the 'withheld_in_countries' key to export/grailbird folder:
-        `php tweets-tweets.php -d -a -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'`
+        tweets.php -v -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'
 
 Prefix the local media with to a URL path 'assets':
-        `php tweets.php --media-prefix='/assets'`
+        tweets.php -v --media-prefix='/assets'
 
-Export tweets with local media files to web folder 'euromoan/www/euromoan' with media files under URL path '/euromoan/':
-        `php cli/tweets.php --dir=euromoan --grailbird=euromoan/www/euromoan/ --grailbird-media  --media-prefix='/euromoan/'`
+Export tweets with local media files to web folder:
+        tweets.php -v --dir=vijinho --grailbird-import=vijinho/import/data/js/tweets --grailbird=vijinho/www/vijinho/ --media-prefix='/vijinho/' --grailbird-media
 
-Import all tweets from grailbird files and export back to grailbird, resolving links and copying media:
+Export only media tweets only':
+        tweets.php -v --grailbird=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --media-only
 
-        `php cli/tweets.php --dir=euromoan --dir-output=euromoan -a -ftweet.js --grailbird-import=euromoan/import/data/js  --grailbird=euromoan/www/euromoan --grailbird-media --media-prefix='/euromoan' -u -o -l --debug 2>&1 | less`
+Export only no mentions, no RTs':
+        tweets.php -v --grailbird=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --no-retweets --no-mentions
+
+Export only tweets containing text 'youtu':
+        tweets.php -v --regexp='/youtu/' --grailbird=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media
+
+Import twitter grailbird files and check every URL and export new grailbird files:
+        tweets.php -v --grailbird=www/vijinho/ --grailbird-import=import/data/js/tweets --urls-check-source
+
+Export the tweet thread 967915766195609600 as grailbird export files, to tweets to thread.json and folder called thread:
+        tweets.php -v --thread=967915766195609600 --filename=www/thread/data/js/thread.json --grailbird=www/thread/ --media-prefix='/thread/' --grailbird-media
+```
 
 ## Note
 

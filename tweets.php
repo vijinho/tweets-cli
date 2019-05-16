@@ -2710,14 +2710,22 @@ if ('md' == OUTPUT_FORMAT) {
 
     $i = 0;
     foreach ($tweets as $timestamp => $tweet) {
-        $text = trim($tweet['text']);
+        /*
         $markdown[] = '<!--';
         $markdown[] = $tweet_id;
         $markdown[] = date('r', $timestamp);
         $markdown[] = '-->';
-        $markdown[] = '';
+        */
+        $text = trim($tweet['text']);
+        
+        // strip twitter photo URLs
+        if (preg_match_all('/http[s]?:\/\/twitter.com\/(?<handle>[^\/]+)\/status\/(?<id>\d+)\/photo\/(?<number>\d+)/i', $text, $matches)) {
+            foreach ($matches[0] as $photo_url) {
+                $text = trim(str_replace($photo_url, '', $text));
+            }
+        }
+
         $markdown[] = $text;
-        $markdown[] = '';
         $mediacount = 0;
         foreach (['videos', 'files', 'images'] as $type) {
             $mediacount++;

@@ -49,6 +49,7 @@ $options = getopt('hvdtf:g:i:auolxr:k:',
     'format:',
     'filename:',
     'grailbird:',
+    'copy-media:',
     'grailbird-media',
     'grailbird-import:',
     'list',
@@ -94,6 +95,7 @@ foreach ([
  'debug'                   => ['d', 'debug'],
  'test'                    => ['t', 'test'],
  'grailbird'               => ['g', 'grailbird'],
+ 'copy-media'              => [null, 'copy-media'],
  'grailbird-media'         => [null, 'grailbird-media'],
  'grailbird-import'        => [null, 'grailbird-import'],
  'list'                    => [null, 'list'],
@@ -158,7 +160,10 @@ if ($do['thread']) {
     }
     $do['thread'] = $thread_id;
 }
-ksort($do);
+if (!empty($do['copy-media'])) {
+    $do['copy-media'] = $options['copy-media'];
+    $do['local'] = 1;
+}
 
 //-----------------------------------------------------------------------------
 // defines (int) - forces 0 or 1 value
@@ -192,7 +197,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
 
     echo join("\n",
         [
-        'Usage: php tweets.php',
+        'Usage: tweets.php',
         'Manipulates tweets taken from an exported twitter archive.',
         "(Specifying any other unknown argument options will be ignored.)\n",
         "\t-h,  --help                   Display this help and exit",
@@ -201,10 +206,11 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t-t,  --test                   Run in test mode, show what would be done, NO filesystem changes.",
         "\t     --dir={.}                Directory of unzipped twitter backup files (current dir if not specified)",
         "\t     --dir-output={.}         Directory to output files in (default to -dir above)",
-        "\t     --format={json}          Output format for script data: txt|php|json (default)",
+        "\t     --format={json}          Output format for script data: txt|md|php|json (default)",
         "\t-f,  --filename={output.}     Filename for output data from operation, default is 'output.{--OUTPUT_FORMAT}'",
         "\t     --grailbird-import={dir} Import in data from the grailbird json files of the standard twitter export. If specified with '-a' will merge into existing tweets before outputting new file.",
-        "\t-g,  --grailbird={dir}        Generate json output files compatible with the standard twitter export feature to dir",
+        "\t-g,  -g={dir}        Generate json output files compatible with the standard twitter export feature to dir",
+        "\t     --copy-media=            Copy local media files to the given folder",
         "\t     --grailbird-media        Copy local media files to grailbird folder, using same file path",
         "\t     --media-prefix           Prefix to local media folder instead of direct file:// path, e.g. '/' if media folders are to be replicated under webroot for serving via web and prefixing a URL path, implies --local",
         "\t     --list                   Only list all files in export folder and halt - filename",
@@ -218,7 +224,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t     --list-profile-images    Only list users profile images, (in filename 'users.json') and halt",
         "\t     --download-profile-images  WARNING: This can be a lot of users! Download profile images.",
         "\t     --tweets-count           Only show the total number of tweets and halt",
-        "\t-i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js'",
+        "\t-i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js' or 'tweet.json' (priority if exists)",
         "\t-a,  --tweets-all             Get all tweets (further operations below will depend on this)",
         "\t     --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php",
         "\t     --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php ",
@@ -241,34 +247,62 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t     --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given",
         "\t     --thread=id              Returned tweets for the thread with id",
         "\nExamples:",
-        "\nReport duplicate tweet media files and output to 'dupes.json':\n\n\tphp tweets-tweets.php -fdupes.json --dupes",
-        "\nShow total tweets in tweets file:\n\n\tphp tweets.php --tweets-count --verbose",
-        "\nWrite all users mentioned in tweets to file 'users.json':\n\n\tphp tweets.php --list-users --verbose",
-        "\nShow javascript files in backup folder:\n\n\tphp tweets.php --list-js --verbose",
-        "\nResolve all URLs in 'tweet.js' file, writing output to 'tweet.json':\n\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json",
-        "\nResolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':\n\n\tphp tweets.php --tweets-all --urls-resolve --filename=tweet.json --grailbird=grailbird",
-        "\nGet tweets, only id, created and text keys:\n\n\tphp tweets.php -v -a -o -u --keys-filter=id,created_at,text",
-        "\nGet tweets from 1 Jan 2017 to 'last friday':\n\n\tphp tweets.php -v -a -o -u --date-from '2017-01-01' --date-to='last friday'",
-        "\nFilter tweet text on word 'hegemony' since last year:\n\n\t php tweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/(hegemony)/i' --regexp-save=hegemony",
-        "\nGenerate grailbird files with expanded/resolved URLs:\n\n\tphp tweets.php --tweets-all --verbose --urls-expand --urls-resolve --grailbird=grailbird",
-        "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:\n\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --grailbird=grailbird",
-        "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:\n\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --grailbird=grailbird",
-        "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:\n\n\tphp tweets.php --tweets-all --verbose --offline --urls-expand --urls-resolve --local --no-retweets --grailbird=grailbird",
-        "\nDelete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':\n\n\tphp tweets-tweets.php --delete --dupes",
-        "\nExtract the first couple of words of the tweet and name the saved regexp 'words':\n\n\ttweets.php -v -a -o -u -l -x -ggrailbird --date-from='last year' --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words",
-        "\nImport grailbird files from 'import/data/js/tweets':\n\n\tphp tweets.php --grailbird-import=import/data/js/tweets --verbose",
-        "\nImport and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:\n\n\tphp tweets-tweets.php -a --grailbird=grailbird --grailbird-import=import/data/js/tweets -o -l -u --verbose",
-        "\nList URLs for which there are missing local media files:\n\n\tphp tweets.php --list-missing-media --verbose",
-        "\nDownload files from URLs for which there are missing local media files:\n\n\tphp tweets.php -a --download-missing-media --verbose",
-        "\nOrganize 'tweet_media' folder into year/month subfolders:\n\n\tphp tweets-tweets.php --organize-media",
-        "\nExport only tweets which have the 'withheld_in_countries' key to export/grailbird folder:\n\n\tphp tweets-tweets.php -d -a -u -o -itweet.json --grailbird=export/grailbird --keys-required='withheld_in_countries'",
-        "\nPrefix the local media with to a URL path 'assets':\n\n\tphp tweets.php --media-prefix='/assets'",
-        "\nExport tweets with local media files to web folder:\n\n\tphp cli/tweets.php -d -v --dir=vijinho --grailbird-import=vijinho/import/data/js/tweets --grailbird=vijinho/www/vijinho/ --grailbird-media --media-prefix='/vijinho/'",
-        "\nExport only tweets from file 'tweet.json', media tweets only':\n\n\tphp ../cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --grailbird=www/vijinho/ --local --grailbird-media --media-prefix='/vijinho/' --media-only",
-        "\nExport only tweets from file 'tweet.json', no mentions, no RTs':\n\n\tphp ../cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --grailbird=www/vijinho/ --local --grailbird-media --media-prefix='/vijinho/'  --no-retweets --no-mentions",
-        "\nExport only tweets from file 'tweet.json', containing text 'youtu':\n\n\tphp ../cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --grailbird=www/vijinho/ --local --grailbird-media --media-prefix='/vijinho/' --regexp='/youtu/'",
-        "\nImport twitter grailbird files and check every URL and export new grailbird files: cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --grailbird=www/vijinho/ --grailbird-import=import/data/js/tweets --urls-check-source",
-        "\nExport the tweet thread 967915766195609600 as grailbird export files, to tweets to thread.json and folder called thread:\n\n\tphp ../cli/tweets.php -d -v --dir=. --tweets-file=tweet.json --filename=www/thread/data/js/thread.json --grailbird-media --grailbird=www/thread/ --media-prefix='/thread/' --thread=967915766195609600",
+        "\nReport duplicate tweet media files and output to 'dupes.json':",
+            "\ttweets.php -fdupes.json --dupes",
+        "\nDelete duplicate tweet media files (will rename them from '{tweet_id}-{id}.{ext}' to '{id}.{ext})':",
+            "\ttweets.php --delete --dupes",
+        "\nShow total tweets in tweets file:",
+            "\ttweets.php --tweets-count --format=txt",
+        "\nWrite all users mentioned in tweets to default file 'users.json':",
+            "\ttweets.php --list-users",
+        "\nShow javascript files in backup folder:",
+            "\ttweets.php -v --list-js",
+        "\nResolve all URLs in 'tweet.js' file, writing output to 'tweet.json':",
+            "\ttweets.php -v -u --filename=tweet.json",
+        "\nResolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':",
+            "\ttweets.php -u --filename=tweet.json -g=export/grailbird",
+        "\nGet tweets from 1 Jan 2017 to 'last friday', only id, created and text keys:",
+            "\ttweets.php -d -v -o -u --keys-filter=id,created_at,text,files --date-from '2017-01-01' --date-to='last friday'",
+        "\nList URLs for which there are missing local media files:",
+            "\ttweets.php -v --list-missing-media",
+        "\nDownload files from URLs for which there are missing local media files:",
+            "\ttweets.php -v --download-missing-media",
+        "\nOrganize 'tweet_media' folder into year/month subfolders:",
+            "\ttweets.php -v --organize-media",
+        "\nPrefix the local media with to a URL path 'assets':",
+            "\ttweets.php -v --media-prefix='/assets'",
+        "\nGenerate grailbird files with expanded/resolved URLs:",
+            "\ttweets.php -v -u -g=export/grailbird",
+        "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data - no fresh checking:",
+            "\ttweets.php -v -o -u -g=export/grailbird",
+        "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data and using local file references where possible:",
+            "\ttweets.php -v -o -u -l -g=export/grailbird",
+        "\nGenerate grailbird files with expanded/resolved URLs using offline saved url data and using local file references, dropping retweets:",
+            "\ttweets.php -v -o -u -l -g=export/grailbird --no-retweets",
+        "\nFilter tweet text on word 'hegemony' since last year, exporting grailbird:",
+            "\ttweets.php -v -o -u -l -g=export/grailbird --regexp='/(hegemony)/i' --regexp-save=hegemony",
+        "\nExtract the first couple of words of the tweet and name the saved regexp 'words':",
+            "\ttweets.php -v -o -u -l -x -g=export/grailbird --regexp='/^(?P<first>[a-zA-Z]+)\s+(?P<second>[a-zA-Z]+)/i' --regexp-save=words",
+        "\nImport grailbird tweets and export tweets with local media files to web folder:",
+            "\ttweets.php -v -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --grailbird-import=vijinho/import/data/js/tweets",
+        "\nImport twitter grailbird files,check URL and export new grailbird files:",
+            "\ttweets.php -v -g=www/vijinho/ --grailbird-import=import/data/js/tweets --urls-check",
+        "\nImport and merge grailbird files from 'import/data/js/tweets', fully-resolving links and local files:",
+            "\ttweets.php -v -o -l -u --grailbird-import=import/data/js/tweets -g=export/grailbird",
+        "\nExport only tweets which have the 'withheld_in_countries' key to export/grailbird folder:",
+            "\ttweets.php -v -u -o --keys-required='withheld_in_countries' -g=export/grailbird",
+        "\nExport only tweets containing text 'youtu':",
+            "\ttweets.php -v --regexp='/youtu/' -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media",
+        "\nExport only no mentions, no RTs':",
+            "\ttweets.php -v -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --no-retweets --no-mentions",
+        "\nExport only media tweets only':",
+            "\ttweets.php -v -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --media-only",
+        "\nExport the tweet thread 967915766195609600 as grailbird export files, to tweets to thread.json and folder called thread:",
+            "\ttweets.php -v --thread=967915766195609600 --filename=www/thread/data/js/thread.json -g=www/thread/ --media-prefix='/thread/' --grailbird-media",
+        "\nExport the tweet thread 967915766195609600 as a js file test/test.json, and copy media files too:",
+            "\ttweets.php -v --dir=vijinho --thread=1108500373298442240 --filename=test/test.json --copy-media=test",
+        "\nExport the tweet thread 967915766195609600 as markdown, and copy media files too:",
+            "\ttweets.php -d -v --dir=vijinho --thread=967915766195609600 --filename=thread/vijinho_967915766195609600_md/item.md --media-prefix=/vijinho_967915766195609600_md/ --copy-media=thread/vijinho_967915766195609600_md --format=md",
     ]) . "\n";
 
     // goto jump here if there's a problem
@@ -358,6 +392,7 @@ if (!empty($options['format'])) {
 switch ($format) {
     case 'txt':
     case 'php':
+    case 'md':
         break;
     default:
     case 'json':
@@ -390,6 +425,9 @@ if (!empty($options['i'])) {
     $tweets_file = $options['tweets-file'];
 } else {
     $tweets_file = 'tweet.js';
+    if (file_exists('tweet.json')) {
+        $tweets_file = 'tweet.json';
+    }
 }
 
 verbose(sprintf('TWEETS FILENAME: %s', $tweets_file));
@@ -805,7 +843,6 @@ if ($do['grailbird']) {
     } elseif (!empty($options['grailbird'])) {
         $grailbird_dir = $options['grailbird'];
     }
-
     if (empty($grailbird_dir)) {
         $grailbird_dir = $dir . 'export/grailbird';
     }
@@ -818,6 +855,10 @@ if ($do['grailbird']) {
     }
     $grailbird_dir = realpath($grailbird_dir);
     verbose(sprintf('GRAILBIRD OUTPUT DIR: %s', $grailbird_dir));
+}
+// copy files to target
+if ($do['grailbird-media']) {
+    $do['copy-media'] = $grailbird_dir;
 }
 
 //-----------------------------------------------------------------------------
@@ -950,7 +991,7 @@ if (!empty($tweets) && is_array($tweets)) {
         }
 
         // this situation occurs when importing grailbird js files
-        if (!array_key_exists('full_text', $tweet) && array_key_exists('text', $tweet)) {
+        if (!array_key_exists('full_text', $tweet)) {
             $tweet['full_text'] = $tweet['text'];
         }
 
@@ -1096,14 +1137,19 @@ if (!empty($tweets) && is_array($tweets)) {
         // if using therefore with --grailbird-import it will get executed
         if (array_key_exists('retweeted_status', $tweet)) {
             $user        = $tweet['retweeted_status']['user'];
-            $screen_name = $user['screen_name'];
-            if (!array_key_exists($screen_name, $users)) {
-                debug(sprintf('Adding entry for user %d: @%s (%s)', $user['id'],
-                        $screen_name, $user['name']));
-                $users[$user['screen_name']] = $user;
-            } else {
-                $users[$user['screen_name']] = array_replace_recursive($users[$screen_name],
-                    $user);
+            if (!empty($user) && array_key_exists('screen_name', $user)) {
+                $screen_name = $user['screen_name'];
+                if (!is_string($screen_name)) {
+                    $screen_name = (int) $screen_name;
+                }
+                if (!array_key_exists($screen_name, $users)) {
+                    debug(sprintf('Adding entry for user %d: @%s (%s)', $user['id'],
+                            $screen_name, $user['name']));
+                    $users[$user['screen_name']] = $user;
+                } else {
+                    $users[$user['screen_name']] = array_replace_recursive($users[$screen_name],
+                        $user);
+                }
             }
         }
 
@@ -1113,7 +1159,11 @@ if (!empty($tweets) && is_array($tweets)) {
                 $tweet['entities'])) {
             $user_mentions = $tweet['entities']['user_mentions'];
             foreach ($user_mentions as $i => $user) {
-                if (array_key_exists($user['screen_name'], $users)) {
+                $screen_name = $user['screen_name'];
+                if (!is_string($screen_name)) {
+                    $screen_name = (int) $screen_name;
+                }
+                if (array_key_exists($screen_name, $users)) {
                     continue;
                 }
                 unset($user['indices']);
@@ -1163,7 +1213,7 @@ if (!empty($threads)) {
     get_root_thread:
     $thread_id_before = $thread_id;
     $tweet = $threads[$thread_id];
-    if (array_key_exists($tweet['in_reply_to_status_id'], $tweets)) {
+    if (array_key_exists('in_reply_to_status_id', $tweet) && array_key_exists($tweet['in_reply_to_status_id'], $tweets)) {
         $tweet = $tweets[$tweet['in_reply_to_status_id']];
         $thread_id = $tweet['id'];
         $threads[$thread_id] = $tweet;
@@ -2121,7 +2171,6 @@ if (!empty($tweets) && is_array($tweets)) {
                             }
                             break;
                         default:
-                            continue;
                             break;
                     }
 
@@ -2199,7 +2248,7 @@ if ($do['urls-check']) {
             continue;
         }
 
-        verbose(sprintf("[%06d/%06d %06d %06d] Checking URL:\n\t%s\n\t",
+        verbose(sprintf("[%06d/%06d %06d %06d] Checking URL:\n\t%s",
                 $urls_checked, $urls_remaining, $urls_changed, $urls_bad,
                 $target));
 
@@ -2501,9 +2550,7 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
                 $tweet[$k] = (int) $tweet[$k];
             }
         }
-
-        // copy files to target
-        if ($do['grailbird-media']) {
+        if (!empty($do['copy-media'])) {
             foreach (['videos', 'files', 'images'] as $type) {
                 if (!array_key_exists($type, $tweet) || empty($tweet[$type])) {
                     continue;
@@ -2515,10 +2562,10 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
                     }
                     // remove source dir path, check it does not match the media prefix
                     if ($dir !== $media_prefix) {
-                        $to = $grailbird_dir . '/' . str_replace("$dir/", '',
+                        $to = $do['copy-media'] . '/' . str_replace("$dir/", '',
                                 $from);
                     } else {
-                        $to = $grailbird_dir . '/' . $media_prefix . '/' . str_replace("$dir/",
+                        $to = $do['copy-media'] . '/' . $media_prefix . '/' . str_replace("$dir/",
                                 '', $from);
                     }
                     $to = str_replace('//', '', $to);
@@ -2533,7 +2580,7 @@ if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
                         //debug("File exists, not copying: $to");
                         continue;
                     }
-                    debug("Copying media file to grailbird folder:\n\t$from\n\t$to");
+                    debug("Copying media file to copy media folder:\n\t$from\n\t$to");
                     if (!copy($from, $to)) {
                         $errors[] = "Error copying $from => $to";
                     }
@@ -2650,6 +2697,175 @@ if ($do['keys-filter']) {
 }
 
 //-----------------------------------------------------------------------------
+// markdown output
+if ('md' == OUTPUT_FORMAT) {
+    $markdown = [];
+
+    // sort tweets by time
+    foreach ($tweets as $tweet_id => $tweet) {
+        unset($tweets[$tweet_id]);
+        $tweets[$tweet['created_at_unixtime']] = $tweet;
+    }
+    ksort($tweets);
+
+    $i = 0;
+    foreach ($tweets as $timestamp => $tweet) {
+        /*
+        $markdown[] = '<!--';
+        $markdown[] = $tweet_id;
+        $markdown[] = date('r', $timestamp);
+        $markdown[] = '-->';
+        */
+        $text = trim($tweet['text']);
+
+        // strip twitter photo URLs
+        if (preg_match_all('/http[s]?:\/\/twitter.com\/(?<handle>[^\/]+)\/status\/(?<id>\d+)\/photo\/(?<number>\d+)/i', $text, $matches)) {
+            foreach ($matches[0] as $photo_url) {
+                $text = trim(str_replace($photo_url, '', $text));
+            }
+        }
+
+        $markdown[] = $text;
+        $mediacount = 0;
+        foreach (['videos', 'files', 'images'] as $type) {
+            $mediacount++;
+            if (!array_key_exists($type, $tweet) || empty($tweet[$type])) {
+                continue;
+            }
+            foreach ($tweet[$type] as $filename => $from) {
+                $i++;
+                unset($tweet[$type][$filename]);
+                if (!file_exists($from) || 0 == filesize($from)) {
+                    unset($tweet[$type][$filename]);
+                    continue;
+                }
+                $ext = strtolower('.' . pathinfo($from, PATHINFO_EXTENSION));
+                $filename = sprintf("%s_%d%s", $i, $tweet['id'], $ext);
+                $tweet[$type][$filename] = $from;
+                switch ($type) {
+                    case 'images':
+                        $markdown[] = sprintf("![Image %d - %s](%s)", $i, $filename, $filename);
+                        break;
+                    case 'files':
+                        $markdown[] = sprintf("[File %d - %s](%s)", $i, $filename, $filename);
+                        break;
+                    case 'videos':
+                        $markdown[] = sprintf("[Video %d - %s](%s)", $i, $filename, $filename);
+                        break;
+                }
+            }
+        }
+        if ($mediacount > 0)
+            $markdown[] = '';
+
+        if (preg_match_all(
+                '/(?P<url>http[s]?:\/\/[^\s]+[^\.\s]+)/i', $text,
+                $matches
+            )) {
+            foreach ($matches['url'] as $url) {
+                $parts = parse_url($url);
+                if (false == $parts || count($parts) <= 1 || !array_key_exists('host', $parts)) {
+                    continue;
+                }
+                $host = $parts['host'];
+                $description = '';
+                if (false !==  stristr($url, 'youtube.')) {
+                    $description = 'Watch on youtube: ';
+                    $markdown[] = sprintf("[plugin:youtube](%s)", $url);
+                } else if (false !==  stristr($url, 'bitchute.')) {
+                    $description = 'Watch on bitchute: ';
+                } else if (false !==  stristr($url, 'dailymotion.')) {
+                    $description = 'Watch on dailymotion: ';
+                    $markdown[] = sprintf("![](%s)", $url);
+                } else if (false !==  stristr($url, 'vimeo.')) {
+                    $description = 'Watch on vimeo: ';
+                    $markdown[] = sprintf("![](%s)", $url);
+                } else if (false !==  stristr($url, 'soundcloud.') || false !==  stristr($url, 'spotify.')) {
+                    $description = 'Listen: ';
+                    $markdown[] = sprintf("![](%s)", $url);
+                } else if (false !==  stristr($url, 'archive.org')) {
+                    $description = 'Internet Archive: ';
+                } else if (false !==  stristr($url, 'flickr.') || false !==  stristr($url, 'imgur.') || false !==  stristr($url, 'instagram.')) {
+                    $description = 'View: ';
+                    $markdown[] = sprintf("![](%s)", $url);
+                }
+                if (!empty($description) || false == stristr($url, 'twitter.com')) {
+                    if (array_key_exists('path', $parts)) {
+                        $markdown[] = sprintf(" - %s[%s%s](%s)", $description, $parts['host'], $parts['path'], $url);
+                    } else {
+                        $markdown[] = sprintf(" - %s[%s](%s)", $description, $parts['host'], $url);
+                    }
+                }
+            }
+        }
+
+        $tweets[$timestamp] = $tweet;
+    }
+    $output = $markdown;
+}
+
+//-----------------------------------------------------------------------------
+// copy media files
+
+if (!empty($do['copy-media'])) {
+    if (empty($media_prefix)) {
+        $media_prefix = '';
+    }
+    foreach ($tweets as $tweet_id => $tweet_default) {
+        $tweet = $tweet_default; // need to modify this to match grailbird files
+        foreach (['videos', 'files', 'images'] as $type) {
+            if (!array_key_exists($type, $tweet) || empty($tweet[$type])) {
+                continue;
+            }
+            foreach ($tweet[$type] as $filename => $from) {
+                if (!file_exists($from)) {
+                    $errors[] = "Source file does not exist $from";
+                    continue;
+                }
+                if ('md' !== OUTPUT_FORMAT) {
+                    // remove source dir path, check it does not match the media prefix
+                    if ($dir !== $media_prefix) {
+                        $to = $do['copy-media'] . '/' . str_replace("$dir/", '',
+                                $from);
+                    } else {
+                        $to = $do['copy-media'] . '/' . $media_prefix . '/' . str_replace("$dir/",
+                                '', $from);
+                    }
+                    $to = str_replace('//', '', $to);
+                    $i  = strrpos($to, '/');
+                    if (false !== $i) {
+                        $target_dir = substr($to, 0, $i);
+                        if (!is_dir($target_dir)) {
+                            mkdir($target_dir, 0777, true);
+                        }
+                    }
+                } else {
+                    $to = $do['copy-media'] . '/' . $filename;
+                    $d = pathinfo($to, PATHINFO_DIRNAME);
+                    if (!file_exists($d)) {
+                        mkdir($d, 0777, true);
+                    }
+                    if (!is_dir($d)) {
+                        $errors[] = "Target is not a directory: $d";
+                        goto errors;
+                    }
+                }
+                if (file_exists($to)) {
+                    //debug("File exists, not copying: $to");
+                    continue;
+                }
+                debug("Copying media file to copy media folder:\n\t$from\n\t$to");
+                if (!copy($from, $to)) {
+                    $errors[] = "Error copying $from => $to";
+                }
+            }
+            // do not store local filenames in tweet
+            unset($tweet[$type]);
+        }
+    }
+}
+
+//-----------------------------------------------------------------------------
 // final output of data
 
 output:
@@ -2674,7 +2890,7 @@ if (!empty($output)) {
     if (empty($output_filename)) {
         $output_filename = 'output.' . OUTPUT_FORMAT;
     }
-    $file = $dir . '/' . $output_filename;
+    $file = $output_filename;
 
     switch (OUTPUT_FORMAT) {
         case 'txt':
@@ -2686,6 +2902,21 @@ if (!empty($output)) {
                         echo "$o\n";
                     }
                 }
+            }
+            break;
+
+        case 'md':
+            if (empty($output) || !is_array($output)) {
+                break;
+            }
+            $markdown = trim(html_entity_decode(join("\n", $markdown)));
+            $save = save($file, $markdown);
+            if (true !== $save) {
+                $errors[] = "\nFailed saving markdown output file:\n\t$file\n";
+                goto errors;
+            } else {
+                verbose(sprintf("Markdown text written to output file:\n\t%s (%d bytes)\n",
+                        $file, filesize($file)));
             }
             break;
 
@@ -2723,28 +2954,30 @@ exit;
 // functions used above
 
 /**
- * Output string, to STDERR if available.
+ * Output string, to STDERR if available
  *
- * @param  string { string to output
- * @param bool $STDERR write to stderr if it is available
+ * @param  string|array { string to output
+ * @param  boolean $STDERR write to stderr if it is available
  */
 function output($text, $STDERR = true)
 {
     if (!empty($STDERR) && defined('STDERR')) {
         fwrite(STDERR, $text);
     } else {
+        if (is_array($text)) {
+            $text = join("\n", $text);
+        }
         echo $text;
     }
 }
 
 
 /**
- * Dump debug data if DEBUG constant is set.
+ * Dump debug data if DEBUG constant is set
  *
- * @param optional string $string string to output
- * @param optional mixed  $data   to dump
- *
- * @return bool true if string output, false if not
+ * @param  optional string $string string to output
+ * @param  optional mixed $data to dump
+ * @return boolean true if string output, false if not
  */
 function debug($string = '', $data = [])
 {
@@ -2753,21 +2986,17 @@ function debug($string = '', $data = [])
         if (!empty($data)) {
             output(print_r($data, 1));
         }
-
         return true;
     }
-
     return false;
 }
 
-
 /**
- * Output string if VERBOSE constant is set.
+ * Output string if VERBOSE constant is set
  *
- * @param string         $string string to output
- * @param optional mixed $data   to dump
- *
- * @return bool true if string output, false if not
+ * @param  string $string string to output
+ * @param  optional mixed $data to dump
+ * @return boolean true if string output, false if not
  */
 function verbose($string, $data = [])
 {
@@ -2776,13 +3005,10 @@ function verbose($string, $data = [])
         if (!empty($data)) {
             output(print_r($data, 1));
         }
-
         return true;
     }
-
     return false;
 }
-
 
 /**
  * Return the memory used by the script, (current/peak).
@@ -2798,16 +3024,14 @@ function get_memory_used()
 
 
 /**
- * check required commands installed and get path.
+ * check required commands installed and get path
  *
- * @param array $requirements [][command -> description]
- *
+ * @param  array $requirements [][command -> description]
  * @return mixed array [command -> path] or string errors
  */
 function get_commands($requirements = [])
 {
     static $commands = []; // cli command paths
-
     $found = true;
     foreach ($requirements as $tool => $description) {
         if (!array_key_exists($tool, $commands)) {
@@ -2818,33 +3042,27 @@ function get_commands($requirements = [])
     if ($found) {
         return $commands;
     }
-
     $errors = [];
     foreach ($requirements as $tool => $description) {
-        $cmd = cmd_execute("which $tool");
-        if (empty($cmd)) {
-            $errors[] = "Error: Missing requirement: $tool - " . $description;
-        } else {
+        try {
+            $cmd = cmd_execute("which $tool");
             $commands[$tool] = $cmd[0];
+        } catch (Exception $e) {
+            $errors[] = "Missing requirement '$tool': " . $description . "\n";
         }
     }
-
     if (!empty($errors)) {
-        output(join("\n", $errors) . "\n");
+        debug('Missing requirements:', $errors);
     }
-
     return $commands;
 }
 
-
 /**
  * Execute a command and return streams as an array of
- * stdin, stdout, stderr.
+ * stdin, stdout, stderr
  *
- * @param string $cmd command to execute
- *
+ * @param  string $cmd command to execute
  * @return array|false array $streams | boolean false if failure
- *
  * @see    https://secure.php.net/manual/en/function.proc-open.php
  */
 function shell_execute($cmd)
@@ -2854,7 +3072,7 @@ function shell_execute($cmd)
         [
         ['pipe', 'r'],
         ['pipe', 'w'],
-        ['pipe', 'w'],
+        ['pipe', 'w']
         ], $pipes
     );
     if (is_resource($process)) {
@@ -2863,27 +3081,23 @@ function shell_execute($cmd)
             $streams[] = stream_get_contents($pipes[$p]);
         }
         proc_close($process);
-
         return [
             'stdin'  => $streams[0],
             'stdout' => $streams[1],
-            'stderr' => $streams[2],
+            'stderr' => $streams[2]
         ];
     }
-
     return false;
 }
 
 
 /**
- * Execute a command and return output of stdout or throw exception of stderr.
+ * Execute a command and return output of stdout or throw exception of stderr
  *
- * @param string $cmd   command to execute
- * @param bool   $split split returned results? default on newline
- * @param string $exp   regular expression to preg_split to split on
- *
+ * @param  string $cmd command to execute
+ * @param  boolean $split split returned results? default on newline
+ * @param  string $exp regular expression to preg_split to split on
  * @return mixed string $stdout | Exception if failure
- *
  * @see    shell_execute($cmd)
  */
 function cmd_execute($cmd, $split = true, $exp = "/\n/")
@@ -2896,7 +3110,6 @@ function cmd_execute($cmd, $split = true, $exp = "/\n/")
     if (empty($split) || empty($exp) || empty($data)) {
         return $data;
     }
-
     return preg_split($exp, $data);
 }
 
@@ -3173,10 +3386,58 @@ function to_charset($data, $to_charset = 'UTF-8', $from_charset = 'auto')
 
 
 /**
- * Load a json file and return a php array of the content.
+ * Save data to a file
  *
- * @param string $file the json filename
+ * @param  string $filename the json filename
+ * @param  mixed $data data to save
+ * @param  optional $join string concatenator string
+ * @return mixed result true if success, string if error
+ */
+function save($file, $data, $join = "\n")
+{
+    if (empty($data)) {
+        return 'No data to write to file.';
+    }
+    if (is_array($data)) {
+        $data = array_clear($data);
+        $data = trim(join($join, $data));
+    }
+    if (!file_put_contents($file, $data)) {
+        return 'Failed to write file: '. $file;
+    }
+    return true;
+}
+
+/**
+ * Decode json
  *
+ * @param  mixed $data the json data as a string or array of lines
+ * @return string|array error string or data array
+ */
+function my_json_decode($data)
+{
+    if (is_array($data)) {
+        $data = join("\n", $data);
+    }
+    $data = to_charset($data);
+    $data = json_decode(
+        mb_convert_encoding($data, 'UTF-8', "auto"), true, 512,
+        JSON_OBJECT_AS_ARRAY || JSON_BIGINT_AS_STRING
+    );
+
+    if (null === $data) {
+        return json_last_error_msg();
+    }
+    if (is_array($data)) {
+        $data = to_charset($data);
+    }
+    return $data;
+}
+
+/**
+ * Load a json file and return a php array of the content
+ *
+ * @param  string $file the json filename
  * @return string|array error string or data array
  */
 function json_load($file)
@@ -3184,18 +3445,8 @@ function json_load($file)
     $data = [];
     if (file_exists($file)) {
         $data = to_charset(file_get_contents($file));
-        $data = json_decode(
-            mb_convert_encoding($data, 'UTF-8', 'auto'), true, 512,
-            JSON_OBJECT_AS_ARRAY || JSON_BIGINT_AS_STRING
-        );
+        $data = my_json_decode($data);
     }
-    if (null === $data) {
-        return json_last_error_msg();
-    }
-    if (is_array($data)) {
-        $data = to_charset($data);
-    }
-
     return $data;
 }
 
@@ -3245,6 +3496,7 @@ function json_load_twitter($dir, $filename, $key = 'id')
       }
     }
 
+    array_push($data, $row);
     if (is_array($data) && count($data) && array_key_exists($key, $row)) {
         $data = array_column($data, null, $key); // re-index
         // return if key is not numeric
@@ -3266,23 +3518,16 @@ function json_load_twitter($dir, $filename, $key = 'id')
 
 
 /**
- * Save data array to a json.
+ * Save data array to a json
  *
- * @param string          $file    the json filename
- * @param array           $data    data to save
- * @param string optional $prepend string to prepend in the file
- * @param string optional $append  string to append to the file
- *
- * @return bool true|string TRUE if success or string error message
+ * @param  string $file the json filename
+ * @param  array $data data to save
+ * @param  string optional $prepend string to prepend in the file
+ * @param  string optional $append string to append to the file
+ * @return boolean true|string TRUE if success or string error message
  */
 function json_save($file, $data, $prepend = '', $append = '')
 {
-    if (TEST) {
-        return true;
-    }
-    if (empty($file)) {
-        return 'Missing filename.';
-    }
     if (empty($data)) {
         return 'No data to write to file.';
     }
@@ -3296,10 +3541,8 @@ function json_save($file, $data, $prepend = '', $append = '')
             $error = sprintf("Unknown Error writing file: '%s' (Prepend: '%s', Append: '%s')",
                 $file, $prepend, $append);
         }
-
         return $error;
     }
-
     return true;
 }
 

@@ -716,6 +716,22 @@ if ($do['tweets-count']) {
 }
 
 //-----------------------------------------------------------------------------
+// load account details
+$account_file = 'account.js';
+verbose(sprintf("Loading account details from '%s'", $account_file));
+$account      = json_load_twitter($dir, $account_file);
+if (empty($account) || is_string($account)) {
+    $errors[] = 'No account file found!';
+    if (is_string($account)) {
+        $errors[] = 'JSON Error: ' . $account;
+    }
+    // goto errors;
+} else {
+    $account = $account[0]['account'];
+    verbose('Account details loaded:', $account);
+}
+
+//-----------------------------------------------------------------------------
 // fetch tweets - all
 
 if ($do['tweets-all'] || $do['list-users']) {
@@ -1192,20 +1208,20 @@ if (!empty($do['thread']) && empty($threads)) {
     goto errors;
 }
 
-if (!empty($threads)) {
-
-    function get_tweet_replies($id, $tweets) {
-        $return = [];
-        $return[$id] = $tweets[$id];
-        foreach ($tweets as $tweet_id => $tweet) {
-            if (!array_key_exists('in_reply_to_status_id', $tweet)) {
-                continue;
-            } else if ($tweet['in_reply_to_status_id'] == $id) {
-                $return[$tweet_id] = $tweet;
-            }
+function get_tweet_replies($id, $tweets) {
+    $return = [];
+    $return[$id] = $tweets[$id];
+    foreach ($tweets as $tweet_id => $tweet) {
+        if (!array_key_exists('in_reply_to_status_id', $tweet)) {
+            continue;
+        } else if ($tweet['in_reply_to_status_id'] == $id) {
+            $return[$tweet_id] = $tweet;
         }
-        return $return;
     }
+    return $return;
+}
+
+if (!empty($threads)) {
 
     debug("Working to get tweets for thread: $thread_id", $threads[$thread_id]);
 
@@ -1858,6 +1874,7 @@ if ($do['urls-resolve']) {
                             'youtube')) {
                         $target = str_replace(['m.youtube', '&feature=youtu.be'],
                             ['www.youtube', ''], $target);
+                        $target = str_replace('youtube.com?', 'youtube.com/watch?', $target);
                     }
                     if ('feature' === $k || false !== stristr($k, 'utm_')) {
                         unset($querystring[$k]);
@@ -2329,21 +2346,6 @@ if ($do['download-missing-media'] || $do['download-profile-images']) {
 if ($do['grailbird'] && !empty($tweets) && is_array($tweets)) {
     verbose('Creating grailbird js files…');
 
-    // load account details
-    $account_file = 'account.js';
-    verbose(sprintf("Loading account details from '%s'", $account_file));
-    $account      = json_load_twitter($dir, $account_file);
-    if (empty($account) || is_string($account)) {
-        $errors[] = 'No account file found!';
-        if (is_string($account)) {
-            $errors[] = 'JSON Error: ' . $account;
-        }
-        goto errors;
-    } else {
-        $account = $account[0]['account'];
-    }
-    verbose('Account details loaded:', $account);
-
     // load profile details
     $profile_file = 'profile.js';
     verbose(sprintf("Loading profile details from '%s'", $profile_file));
@@ -2699,33 +2701,180 @@ if ($do['keys-filter']) {
 //-----------------------------------------------------------------------------
 // markdown output
 if ('md' == OUTPUT_FORMAT) {
-    $markdown = [];
 
-    // sort tweets by time
-    foreach ($tweets as $tweet_id => $tweet) {
-        unset($tweets[$tweet_id]);
-        $tweets[$tweet['created_at_unixtime']] = $tweet;
+    $markdown = ["# Tweets\n"];
+
+    $threaded = [];
+    foreach ($tweets as $thread_id => $t) {
+      $threads = [];
+      if (array_key_exists($thread_id, $threaded) && count($threaded[$thread_id]) > 1) {
+        continue;
+      }
+      $threads[$thread_id] = $t;
+
+      //debug("Working to get tweets for thread: $thread_id", $threads[$thread_id]);
+      //debug("Working to get tweets for thread: $thread_id");
+      // check is not in reply to
+      get_root_thread2:
+        $thread_id_before = $thread_id;
+        $tweet = $threads[$thread_id];
+        if (array_key_exists('in_reply_to_status_id', $tweet) && array_key_exists($tweet['in_reply_to_status_id'], $tweets)) {
+            $tweet = $tweets[$tweet['in_reply_to_status_id']];
+            $thread_id = $tweet['id'];
+            $threads[$thread_id] = $tweet;
+        }
+        if ($thread_id_before !== $thread_id)
+            goto get_root_thread2;
+
+      $done = [];
+      $threads = get_tweet_replies($thread_id, $tweets);
+      get_threads2:
+          $count = count($threads);
+          $do_threads = $threads;
+          foreach ($do_threads as $tweet_id => $tweet) {
+              if (array_key_exists($tweet_id, $done))
+                  continue;
+              $replies = get_tweet_replies($tweet_id, $tweets);
+              foreach ($replies as $id => $t) {
+                  if (!array_key_exists($id, $threads))
+                      $threads[$id] = $t;
+              }
+              $done[$tweet_id] = $tweet_id;
+          }
+          if (count($threads) > $count)
+              goto get_threads2;
+
+        if (empty($threads) || count($threads) <= 1) {
+            continue;
+        }
+
+        ksort($threads);
+        if (array_key_exists($thread_id, $threaded) && count($threaded[$thread_id]) > 1) {
+          continue;
+        }
+        debug("Found tweets for thread: $thread_id");
+        $threaded[$thread_id] = $threads;
     }
-    ksort($tweets);
+
+    ksort($threaded);
+
+    foreach ($threaded as $thread_id => $thread) {
+        debug("Moving thread tweets: $thread_id");
+        foreach (array_keys($thread) as $id) {
+          if (array_key_exists($id, $tweets))
+            unset($tweets[$id]);
+        }
+        foreach ($thread as $id => $tweet) {
+            $tweets[$id] = $tweet;
+        }
+    }
 
     $i = 0;
-    foreach ($tweets as $timestamp => $tweet) {
-        /*
-        $markdown[] = '<!--';
-        $markdown[] = $tweet_id;
-        $markdown[] = date('r', $timestamp);
-        $markdown[] = '-->';
-        */
+    $lastday = '';
+    foreach ($tweets as $id => $tweet) {
+        $timestamp = $tweet['created_at_unixtime'];
         $text = trim($tweet['text']);
+        $text = str_replace('youtube.com?', 'youtube.com/watch?', $text);
+        $tweet['text'] = $text;
+
+        $hashtags = [];
+        if (preg_match_all(
+                '/(?P<hashtag>#[^\.\s]+)/', $text,
+                $matches
+            )) {
+            $hashtags = $matches['hashtag'];
+            foreach ($matches['hashtag'] as $h) {
+                $text = str_replace($h, '', $text);
+            }
+            foreach ($hashtags as $i => $h) {
+              unset($hashtags[$i]);
+              $hashtags[$h] = sprintf("[%s](https://twitter.com/search?q=%s)", $h, urlencode($h));
+            }
+        }
 
         // strip twitter photo URLs
+        /*
         if (preg_match_all('/http[s]?:\/\/twitter.com\/(?<handle>[^\/]+)\/status\/(?<id>\d+)\/photo\/(?<number>\d+)/i', $text, $matches)) {
             foreach ($matches[0] as $photo_url) {
                 $text = trim(str_replace($photo_url, '', $text));
             }
+        }*/
+        // strip all URLs from tweet text
+        if (preg_match_all(
+                '/(?P<url>http[s]?:\/\/[^\s]+[^\.\s]+)/i', $text,
+                $matches
+            )) {
+            foreach ($matches['url'] as $url) {
+                $text = trim(str_replace($url, "", $text));
+            }
+        }
+
+        $text = str_replace([
+          '\\', '-', '#', '*', '+', '`', '.', '[', ']', '(', ')', '!', '&', '<', '>', '_', '{', '}', ], [
+          '\\\\', '\-', '\#', '\*', '\+', '\`', '\.', '\[', '\]', '\(', '\)', '\!', '\&', '\<', '\>', '\_', '\{', '\}',
+        ], $text);
+        $text = trim($text) . "\n" . trim(join(" ", $hashtags)) . "\n";
+
+        $handles = [];
+        if (preg_match_all(
+                '/(?P<handle>@[\w\d_]+[^\s]+[^\.\s]+)/', $text,
+                $matches
+            )) {
+            $handles = $matches;
+            foreach ($matches['handle'] as $h) {
+                $text = str_replace($h, sprintf("[$h](https://twitter.com/%s)", $h), $text);
+            }
+        }
+
+        $text = sprintf("\n[\#%s](https://twitter.com/%s/status/%s):\n> %s", $tweet['id'], $account['username'], $tweet['id'], $text);
+        if (array_key_exists($id, $threaded)) {
+          $markdown[] = sprintf("\n## [Thread](https://twitter.com/%s/status/%s) (%d):\n", $account['username'], $tweet['id'], count($threaded[$id]));
+        }
+
+        if (substr(sprintf("%s", date('r', $timestamp)), 0, 16) !== $lastday) {
+          $lastday = substr(sprintf("%s", date('r', $timestamp)), 0, 16);
+          $markdown[] = "\n### $lastday\n";
         }
 
         $markdown[] = $text;
+        if (preg_match_all(
+                '/(?P<url>http[s]?:\/\/[^\s]+[^\.\s]+)/i', $tweet['text'],
+                $matches
+            )) {
+            foreach ($matches['url'] as $url) {
+                $parts = parse_url($url);
+                if (false == $parts || count($parts) <= 1 || !array_key_exists('host', $parts)) {
+                    continue;
+                }
+                $host = $parts['host'];
+                $description = '';
+                if (false !==  stristr($url, 'youtube.')) {
+                    $description = 'Watch on youtube: ';
+                    //$markdown[] = sprintf("![%s](%s)\n", $url, $url);
+                } else if (false !==  stristr($url, 'bitchute.')) {
+                    $description = 'Watch on bitchute: ';
+                } else if (false !==  stristr($url, 'dailymotion.')) {
+                    $description = 'Watch on dailymotion: ';
+                    //$markdown[] = sprintf("![%s](%s)", $url, $url);
+                } else if (false !==  stristr($url, 'vimeo.')) {
+                    $description = 'Watch on vimeo: ';
+                    //$markdown[] = sprintf("![%s](%s)", $url, $url);
+                } else if (false !==  stristr($url, 'soundcloud.') || false !==  stristr($url, 'spotify.')) {
+                    $description = 'Listen: ';
+                    //$markdown[] = sprintf("![%s](%s)", $url, $url);
+                } else if (false !==  stristr($url, 'archive.org')) {
+                    $description = 'Internet Archive: ';
+                } else if (false !==  stristr($url, 'flickr.') || false !==  stristr($url, 'imgur.') || false !==  stristr($url, 'instagram.')) {
+                    $description = 'View: ';
+                    //$markdown[] = sprintf("![%s](%s)", $url, $url);
+                }
+                if (!empty($description) || false == stristr($url, 'twitter.com')) {
+                    $markdown[] = sprintf(" - %s[%s](%s)", $description, $url, $url);
+                }
+            }
+        }
+
+        //$markdown[] = sprintf("\n<!-- %s -->\n%s", $tweet['id'], $text);
         $mediacount = 0;
         foreach (['videos', 'files', 'images'] as $type) {
             $mediacount++;
@@ -2744,7 +2893,7 @@ if ('md' == OUTPUT_FORMAT) {
                 $tweet[$type][$filename] = $from;
                 switch ($type) {
                     case 'images':
-                        $markdown[] = sprintf("![Image %d - %s](%s)", $i, $filename, $filename);
+                        $markdown[] = sprintf("![Image %d - %s](%s)", $i, $filename, $from);
                         break;
                     case 'files':
                         $markdown[] = sprintf("[File %d - %s](%s)", $i, $filename, $filename);
@@ -2758,48 +2907,7 @@ if ('md' == OUTPUT_FORMAT) {
         if ($mediacount > 0)
             $markdown[] = '';
 
-        if (preg_match_all(
-                '/(?P<url>http[s]?:\/\/[^\s]+[^\.\s]+)/i', $text,
-                $matches
-            )) {
-            foreach ($matches['url'] as $url) {
-                $parts = parse_url($url);
-                if (false == $parts || count($parts) <= 1 || !array_key_exists('host', $parts)) {
-                    continue;
-                }
-                $host = $parts['host'];
-                $description = '';
-                if (false !==  stristr($url, 'youtube.')) {
-                    $description = 'Watch on youtube: ';
-                    $markdown[] = sprintf("[plugin:youtube](%s)", $url);
-                } else if (false !==  stristr($url, 'bitchute.')) {
-                    $description = 'Watch on bitchute: ';
-                } else if (false !==  stristr($url, 'dailymotion.')) {
-                    $description = 'Watch on dailymotion: ';
-                    $markdown[] = sprintf("![](%s)", $url);
-                } else if (false !==  stristr($url, 'vimeo.')) {
-                    $description = 'Watch on vimeo: ';
-                    $markdown[] = sprintf("![](%s)", $url);
-                } else if (false !==  stristr($url, 'soundcloud.') || false !==  stristr($url, 'spotify.')) {
-                    $description = 'Listen: ';
-                    $markdown[] = sprintf("![](%s)", $url);
-                } else if (false !==  stristr($url, 'archive.org')) {
-                    $description = 'Internet Archive: ';
-                } else if (false !==  stristr($url, 'flickr.') || false !==  stristr($url, 'imgur.') || false !==  stristr($url, 'instagram.')) {
-                    $description = 'View: ';
-                    $markdown[] = sprintf("![](%s)", $url);
-                }
-                if (!empty($description) || false == stristr($url, 'twitter.com')) {
-                    if (array_key_exists('path', $parts)) {
-                        $markdown[] = sprintf(" - %s[%s%s](%s)", $description, $parts['host'], $parts['path'], $url);
-                    } else {
-                        $markdown[] = sprintf(" - %s[%s](%s)", $description, $parts['host'], $url);
-                    }
-                }
-            }
-        }
-
-        $tweets[$timestamp] = $tweet;
+        $markdown[] = "\n";
     }
     $output = $markdown;
 }
@@ -2909,7 +3017,7 @@ if (!empty($output)) {
             if (empty($output) || !is_array($output)) {
                 break;
             }
-            $markdown = trim(html_entity_decode(join("\n", $markdown)));
+            $markdown = trim(html_entity_decode(join("\n", $output)));
             $save = save($file, $markdown);
             if (true !== $save) {
                 $errors[] = "\nFailed saving markdown output file:\n\t$file\n";

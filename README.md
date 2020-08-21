@@ -164,6 +164,12 @@ Export the tweet thread 967915766195609600 as a js file test/test.json, and copy
 
 Export the tweet thread 967915766195609600 as markdown, and copy media files too:
         tweets.php -d -v --dir=vijinho --thread=967915766195609600 --filename=thread/vijinho_967915766195609600_md/item.md --media-prefix=/vijinho_967915766195609600_md/ --copy-media=thread/vijinho_967915766195609600_md --format=md        
+
+Resolve URLs from tweets.js/tweets.json file and create a complete grailbird-data export, creating a new tweets.json file after to
+        tweets.php -v -d  --date-from '2019-05-01' --urls-expand --urls-resolve --grailbird-media --media-prefix='/' --grailbird=grailbird --filename="tweet.json"
+
+Generate markdown output file of all tweets except RTs and mentions
+        tweets.php -v -d --no-retweets --no-mentions --format=md --filename=output.md
 ```
 
 ## Note

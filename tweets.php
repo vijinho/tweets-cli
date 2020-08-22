@@ -2838,10 +2838,7 @@ if ('md' == OUTPUT_FORMAT) {
             }
         }
 
-        $text = str_replace([
-          '\\', '-', '#', '*', '+', '`', '.', '[', ']', '(', ')', '!', '&', '<', '>', '_', '{', '}', ], [
-          '\\\\', '\-', '\#', '\*', '\+', '\`', '\.', '\[', '\]', '\(', '\)', '\!', '\&', '\<', '\>', '\_', '\{', '\}',
-        ], $text);
+        $text = markdown_escape($text);
         $text = trim($text) . "\n" . trim(join(" ", $hashtags)) . "\n";
 
         $handles = [];
@@ -4062,4 +4059,19 @@ function twitpic_download($url, $path, $mime_type = 'image/jpeg')
     }
 
     return true;
+}
+
+
+/**
+ * Escape markdown text
+ *
+ * @param string $text the markdown text to escape
+ *
+ * @return string escaped text
+ */
+function markdown_escape($text) {
+  return str_replace([
+    '\\', '-', '#', '*', '+', '`', '.', '[', ']', '(', ')', '!', '&', '<', '>', '_', '{', '}', ], [
+    '\\\\', '\-', '\#', '\*', '\+', '\`', '\.', '\[', '\]', '\(', '\)', '\!', '\&', '\<', '\>', '\_', '\{', '\}',
+  ], $text);
 }

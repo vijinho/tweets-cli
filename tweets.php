@@ -86,6 +86,7 @@ $options = getopt('hvdtf:g:i:auolxr:k:',
     'keys-remove:',
     'keys-filter:',
     'thread:',
+    'threads-tweets:',
     ]);
 
 $do = [];
@@ -127,6 +128,7 @@ foreach ([
  'keys-remove'             => ['r', 'keys-remove'],
  'keys-filter'             => ['k', 'keys-filter'],
  'thread'                  => [null, 'thread'],
+ 'threads-tweets'          => [null, 'threads-tweets'],
 ] as $i => $opts) {
     $do[$i] = (int) (array_key_exists($opts[0], $options) || array_key_exists($opts[1],
             $options));
@@ -159,6 +161,13 @@ if ($do['thread']) {
         $thread_id = 0;
     }
     $do['thread'] = $thread_id;
+}
+if ($do['threads-tweets']) {
+    $threads_tweets = (int) $options['threads-tweets'];
+    if ($threads_tweets < 1) {
+        $threads_tweets = 2;
+    }
+    $do['threads-tweets'] = $threads_tweets;
 }
 if (!empty($do['copy-media'])) {
     $do['copy-media'] = $options['copy-media'];
@@ -246,6 +255,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t     --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
         "\t     --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given",
         "\t     --thread=id              Returned tweets for the thread with id",
+        "\t     --threads-tweets={n}     When exporting markdown, save threads to markdown files which have a minimum of n tweets",
         "\nExamples:",
         "\nReport duplicate tweet media files and output to 'dupes.json':",
             "\ttweets.php -fdupes.json --dupes",
@@ -303,6 +313,10 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\ttweets.php -v --dir=vijinho --thread=1108500373298442240 --filename=test/test.json --copy-media=test",
         "\nExport the tweet thread 967915766195609600 as markdown, and copy media files too:",
             "\ttweets.php -d -v --dir=vijinho --thread=967915766195609600 --filename=thread/vijinho_967915766195609600_md/item.md --media-prefix=/vijinho_967915766195609600_md/ --copy-media=thread/vijinho_967915766195609600_md --format=md",
+        "\nResolve URLs from tweets.js/tweets.json file and create a complete grailbird-data export, creating a new tweets.json file after to",
+            "\ttweets.php -v -d  --date-from '2019-05-01' --urls-expand --urls-resolve --grailbird-media --media-prefix='/' --grailbird=grailbird --filename='tweet.json'",
+        "\nGenerate markdown output file of all tweets except RTs and mentions for threads which have at least 10 tweets",
+            "\ttweets.php -v -d --no-retweets --no-mentions --format=md --filename=output.md --threads-tweets=10",
     ]) . "\n";
 
     // goto jump here if there's a problem
@@ -2702,60 +2716,74 @@ if ($do['keys-filter']) {
 // markdown output
 if ('md' == OUTPUT_FORMAT) {
 
-    $markdown = ["# Tweets\n"];
-
+    $md = ["# Tweets\n"];
     $threaded = [];
-    foreach ($tweets as $thread_id => $t) {
-      $threads = [];
-      if (array_key_exists($thread_id, $threaded) && count($threaded[$thread_id]) > 1) {
-        continue;
-      }
-      $threads[$thread_id] = $t;
 
-      //debug("Working to get tweets for thread: $thread_id", $threads[$thread_id]);
-      //debug("Working to get tweets for thread: $thread_id");
-      // check is not in reply to
-      get_root_thread2:
-        $thread_id_before = $thread_id;
-        $tweet = $threads[$thread_id];
-        if (array_key_exists('in_reply_to_status_id', $tweet) && array_key_exists($tweet['in_reply_to_status_id'], $tweets)) {
-            $tweet = $tweets[$tweet['in_reply_to_status_id']];
-            $thread_id = $tweet['id'];
-            $threads[$thread_id] = $tweet;
+    $threads_file = 'threads.json';
+    verbose(sprintf("Loading threads details from '%s'", $threads_file));
+    $threaded      = json_load($threads_file);
+    if (empty($threaded) || is_string($threaded)) {
+        $errors[] = 'No threads file found!';
+        if (is_string($threaded)) {
+            $errors[] = 'JSON Error: ' . $threaded;
         }
-        if ($thread_id_before !== $thread_id)
-            goto get_root_thread2;
+        $threaded = [];
+    } else {
+        verbose('Threaded tweets loaded: %d', count($threaded));
+    }
 
-      $done = [];
-      $threads = get_tweet_replies($thread_id, $tweets);
-      get_threads2:
-          $count = count($threads);
-          $do_threads = $threads;
-          foreach ($do_threads as $tweet_id => $tweet) {
-              if (array_key_exists($tweet_id, $done))
-                  continue;
-              $replies = get_tweet_replies($tweet_id, $tweets);
-              foreach ($replies as $id => $t) {
-                  if (!array_key_exists($id, $threads))
-                      $threads[$id] = $t;
-              }
-              $done[$tweet_id] = $tweet_id;
-          }
-          if (count($threads) > $count)
-              goto get_threads2;
-
-        if (empty($threads) || count($threads) <= 1) {
-            continue;
-        }
-
-        ksort($threads);
+    if (empty($threaded)) {
+      foreach ($tweets as $thread_id => $t) {
+        $threads = [];
         if (array_key_exists($thread_id, $threaded) && count($threaded[$thread_id]) > 1) {
           continue;
         }
-        debug("Found tweets for thread: $thread_id");
-        $threaded[$thread_id] = $threads;
-    }
+        $threads[$thread_id] = $t;
 
+        //debug("Working to get tweets for thread: $thread_id", $threads[$thread_id]);
+        //debug("Working to get tweets for thread: $thread_id");
+        // check is not in reply to
+        get_root_thread2:
+          $thread_id_before = $thread_id;
+          $tweet = $threads[$thread_id];
+          if (array_key_exists('in_reply_to_status_id', $tweet) && array_key_exists($tweet['in_reply_to_status_id'], $tweets)) {
+              $tweet = $tweets[$tweet['in_reply_to_status_id']];
+              $thread_id = $tweet['id'];
+              $threads[$thread_id] = $tweet;
+          }
+          if ($thread_id_before !== $thread_id)
+              goto get_root_thread2;
+
+        $done = [];
+        $threads = get_tweet_replies($thread_id, $tweets);
+        get_threads2:
+            $count = count($threads);
+            $do_threads = $threads;
+            foreach ($do_threads as $tweet_id => $tweet) {
+                if (array_key_exists($tweet_id, $done))
+                    continue;
+                $replies = get_tweet_replies($tweet_id, $tweets);
+                foreach ($replies as $id => $t) {
+                    if (!array_key_exists($id, $threads))
+                        $threads[$id] = $t;
+                }
+                $done[$tweet_id] = $tweet_id;
+            }
+            if (count($threads) > $count)
+                goto get_threads2;
+
+          if (empty($threads) || count($threads) <= 1) {
+              continue;
+          }
+
+          ksort($threads);
+          if (array_key_exists($thread_id, $threaded) && count($threaded[$thread_id]) > 1) {
+            continue;
+          }
+          debug("Found tweets for thread: $thread_id");
+          $threaded[$thread_id] = $threads;
+      }
+    }
     ksort($threaded);
 
     foreach ($threaded as $thread_id => $thread) {
@@ -2772,6 +2800,7 @@ if ('md' == OUTPUT_FORMAT) {
     $i = 0;
     $lastday = '';
     foreach ($tweets as $id => $tweet) {
+        $markdown = [];
         $timestamp = $tweet['created_at_unixtime'];
         $text = trim($tweet['text']);
         $text = str_replace('youtube.com?', 'youtube.com/watch?', $text);
@@ -2906,9 +2935,60 @@ if ('md' == OUTPUT_FORMAT) {
         }
         if ($mediacount > 0)
             $markdown[] = '';
+        else
+          $markdown[] = "\n";
 
-        $markdown[] = "\n";
+        array_push($md, $markdown);
+        $tweet['text_markdown'] = trim(join("\n", $markdown));
+        $tweets[$id] = $tweet;
     }
+
+    // save tweets with markdown
+    $save   = json_save($tweets_file, $tweets);
+    if (true !== $save) {
+        $errors[] = "\nFailed encoding JSON tweets file:\n\t$tweets_file\n";
+        $errors[] = "\nJSON Error: $save\n";
+        goto errors;
+    } else {
+        verbose(sprintf("JSON written to tweets file:\n\t%s (%d bytes)\n",
+                $tweets_file, filesize($tweets_file)));
+    }
+
+    // save threads to individual files
+    foreach ($threaded as $thread_id => $thread) {
+        debug("Saving larger threads: $thread_id");
+        if (count($thread) < $threads_tweets) {
+            continue;
+        }
+        $savedata = [];
+        foreach ($thread as $id => $tweet) {
+            $tweet = $tweets[$id];
+            $threaded[$thread_id][$id] = $tweet;
+            $savedata[] = $tweet['text_markdown'] . "\n";
+        }
+        $f = sprintf("thread-%s.md", $thread_id);
+        $save = save($f, $savedata);
+        if (true !== $save) {
+            $errors[] = "\nFailed saving markdown output file:\n\t$f\n";
+            $errors[] = "\Save Error: $save\n";
+            goto errors;
+        } else {
+            verbose(sprintf("Markdown written to output file:\n\t%s (%d bytes)\n",
+                    $f, filesize($f)));
+        }
+    }
+
+    // save threads file
+    $save = json_save($threads_file, $threaded);
+    if (true !== $save) {
+        $errors[] = "\nFailed encoding JSON output file:\n\t$threads_file\n";
+        $errors[] = "\nJSON Error: $save\n";
+        goto errors;
+    } else {
+        verbose(sprintf("JSON written to output file:\n\t%s (%d bytes)\n",
+                $threads_file, filesize($threads_file)));
+    }
+
     $output = $markdown;
 }
 

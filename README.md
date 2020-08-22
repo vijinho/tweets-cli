@@ -60,6 +60,7 @@ Usage: php tweets.php
      --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php
      --no-retweets            Drop re-tweets (RT's)
      --no-mentions            Drop tweets starting with mentions
+      --minimal               Minimal output for each tweet, no superfluous data like tweet IDs.
      --media-only             Only media tweets
      --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)
 -u,  --urls-resolve           Unshorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand

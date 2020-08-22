@@ -87,6 +87,7 @@ $options = getopt('hvdtf:g:i:auolxr:k:',
     'keys-filter:',
     'thread:',
     'threads-tweets:',
+    'minimal',
     ]);
 
 $do = [];
@@ -129,6 +130,7 @@ foreach ([
  'keys-filter'             => ['k', 'keys-filter'],
  'thread'                  => [null, 'thread'],
  'threads-tweets'          => [null, 'threads-tweets'],
+ 'minimal'                 => [null, 'minimal']
 ] as $i => $opts) {
     $do[$i] = (int) (array_key_exists($opts[0], $options) || array_key_exists($opts[1],
             $options));
@@ -172,6 +174,9 @@ if ($do['threads-tweets']) {
 if (!empty($do['copy-media'])) {
     $do['copy-media'] = $options['copy-media'];
     $do['local'] = 1;
+}
+if (!empty($do['minimal'])) {
+    $do['minimal'] = true;
 }
 
 //-----------------------------------------------------------------------------
@@ -239,6 +244,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t     --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php ",
         "\t     --no-retweets            Drop re-tweets (RT's)",
         "\t     --no-mentions            Drop tweets starting with mentions",
+        "\t     --minimal                Minimal output for each tweet, no superfluous data like tweet IDs.",
         "\t     --media-only             Only media tweets",
         "\t     --urls-expand            Expand URLs where shortened and data available (offline) in tweet (new attribute: text)",
         "\t-u,  --urls-resolve           Unshorten and dereference URLs in tweet (in new attribute: text) - implies --urls-expand",
@@ -2718,7 +2724,6 @@ if ('md' == OUTPUT_FORMAT) {
 
     $md = ["# Tweets\n"];
     $threaded = [];
-
     $threads_file = 'threads.json';
     verbose(sprintf("Loading threads details from '%s'", $threads_file));
     $threaded      = json_load($threads_file);
@@ -2799,6 +2804,7 @@ if ('md' == OUTPUT_FORMAT) {
 
     $i = 0;
     $lastday = '';
+    $minimal = $do['minimal'];
     foreach ($tweets as $id => $tweet) {
         $markdown = [];
         $timestamp = $tweet['created_at_unixtime'];
@@ -2852,14 +2858,18 @@ if ('md' == OUTPUT_FORMAT) {
             }
         }
 
-        $text = sprintf("\n[\#%s](https://twitter.com/%s/status/%s):\n> %s", $tweet['id'], $account['username'], $tweet['id'], $text);
+        if ($minimal) {
+            $text = sprintf("\n> %s\n", $text);
+        } else {
+            $text = sprintf("\n[\#%s](https://twitter.com/%s/status/%s):\n> %s", $tweet['id'], $account['username'], $tweet['id'], $text);
+        }
         if (array_key_exists($id, $threaded)) {
-          $markdown[] = sprintf("\n## [Thread](https://twitter.com/%s/status/%s) (%d):\n", $account['username'], $tweet['id'], count($threaded[$id]));
+            $markdown[] = sprintf("\n## [Thread](https://twitter.com/%s/status/%s) (%d):\n", $account['username'], $tweet['id'], count($threaded[$id]));
         }
 
         if (substr(sprintf("%s", date('r', $timestamp)), 0, 16) !== $lastday) {
-          $lastday = substr(sprintf("%s", date('r', $timestamp)), 0, 16);
-          $markdown[] = "\n### $lastday\n";
+            $lastday = substr(sprintf("%s", date('r', $timestamp)), 0, 16);
+            $markdown[] = "\n### $lastday\n";
         }
 
         $markdown[] = $text;
@@ -2894,8 +2904,12 @@ if ('md' == OUTPUT_FORMAT) {
                     $description = 'View: ';
                     //$markdown[] = sprintf("![%s](%s)", $url, $url);
                 }
-                if (!empty($description) || false == stristr($url, 'twitter.com')) {
-                    $markdown[] = sprintf(" - %s[%s](%s)", $description, $url, $url);
+                if (false == stristr($url, 'twitter.com')) {
+                    if (!empty($description) && !$minimal) {
+                        $markdown[] = sprintf(" - %s[%s](%s)", $description, $url, $url);
+                    } else {
+                        $markdown[] = sprintf(" - [%s](%s)", $url, $url);
+                    }
                 }
             }
         }

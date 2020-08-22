@@ -2938,8 +2938,8 @@ if ('md' == OUTPUT_FORMAT) {
         else
           $markdown[] = "\n";
 
-        array_push($md, $markdown);
         $tweet['text_markdown'] = trim(join("\n", $markdown));
+        $md[] = $tweet['text_markdown'];
         $tweets[$id] = $tweet;
     }
 
@@ -2955,12 +2955,33 @@ if ('md' == OUTPUT_FORMAT) {
     }
 
     // save threads to individual files
+    debug("Saving threads with more tweets than: $threads_tweets");
     foreach ($threaded as $thread_id => $thread) {
-        debug("Saving larger threads: $thread_id");
         if (count($thread) < $threads_tweets) {
             continue;
         }
+        debug("Creating markdown file for thread: $thread_id");
+        $ts = $tweets[$thread_id]['created_at_unixtime'];
+        $date = date("d-m-Y H:i", $ts);
         $savedata = [];
+        $savedata[] = "---
+title: 'Twitter Thread: $thread_id'
+date: '$date'
+publish_date: '$date'
+published: false
+metadata:
+    - 'tweets,twitter,threads'
+taxonomy:
+    category:
+        - blog
+    tag:
+        - tweets
+        - twitter
+        - threads
+slug: $thread_id
+author: 'Joe Bloggs'
+---\n";
+
         foreach ($thread as $id => $tweet) {
             $tweet = $tweets[$id];
             $threaded[$thread_id][$id] = $tweet;
@@ -2975,6 +2996,7 @@ if ('md' == OUTPUT_FORMAT) {
         } else {
             verbose(sprintf("Markdown written to output file:\n\t%s (%d bytes)\n",
                     $f, filesize($f)));
+            touch($f, time(), $ts);
         }
     }
 
@@ -2989,7 +3011,7 @@ if ('md' == OUTPUT_FORMAT) {
                 $threads_file, filesize($threads_file)));
     }
 
-    $output = $markdown;
+    $output = $md;
 }
 
 //-----------------------------------------------------------------------------
@@ -3098,6 +3120,25 @@ if (!empty($output)) {
                 break;
             }
             $markdown = trim(html_entity_decode(join("\n", $output)));
+            $date = date("d-m-Y H:i");
+            $ts = time();
+            $markdown = "---
+title: 'Tweets'
+date: '$date'
+publish_date: '$date'
+published: false
+metadata:
+    - 'tweets,twitter,threads'
+taxonomy:
+    category:
+        - blog
+    tag:
+        - tweets
+        - twitter
+        - threads
+slug: tweets-$ts
+author: 'Joe Bloggs'
+---\n" . $markdown;
             $save = save($file, $markdown);
             if (true !== $save) {
                 $errors[] = "\nFailed saving markdown output file:\n\t$file\n";

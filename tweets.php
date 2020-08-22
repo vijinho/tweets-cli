@@ -2728,10 +2728,6 @@ if ('md' == OUTPUT_FORMAT) {
     verbose(sprintf("Loading threads details from '%s'", $threads_file));
     $threaded      = json_load($threads_file);
     if (empty($threaded) || is_string($threaded)) {
-        $errors[] = 'No threads file found!';
-        if (is_string($threaded)) {
-            $errors[] = 'JSON Error: ' . $threaded;
-        }
         $threaded = [];
     } else {
         verbose('Threaded tweets loaded: %d', count($threaded));
@@ -2936,10 +2932,10 @@ if ('md' == OUTPUT_FORMAT) {
                         $markdown[] = sprintf("![Image %d - %s](%s)", $i, $filename, $from);
                         break;
                     case 'files':
-                        $markdown[] = sprintf("[File %d - %s](%s)", $i, $filename, $filename);
+                        $markdown[] = sprintf("[File %d - %s](%s)", $i, $filename, $from);
                         break;
                     case 'videos':
-                        $markdown[] = sprintf("[Video %d - %s](%s)", $i, $filename, $filename);
+                        $markdown[] = sprintf("[Video %d - %s](%s)", $i, $filename, $from);
                         break;
                 }
             }

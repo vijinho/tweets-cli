@@ -164,6 +164,9 @@ if ($do['thread']) {
     }
     $do['thread'] = $thread_id;
 }
+if (array_key_exists('threads-tweets', $options)) {
+    $do['threads-tweets'] = 1;
+}
 if ($do['threads-tweets']) {
     $threads_tweets = (int) $options['threads-tweets'];
     if ($threads_tweets < 1) {
@@ -238,7 +241,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t     --list-profile-images    Only list users profile images, (in filename 'users.json') and halt",
         "\t     --download-profile-images  WARNING: This can be a lot of users! Download profile images.",
         "\t     --tweets-count           Only show the total number of tweets and halt",
-        "\t-i,  --tweets-file={tweet.js} Load tweets from different json input file instead of default twitter 'tweet.js' or 'tweet.json' (priority if exists)",
+        "\t-i,  --tweets-file={tweets.js} Load tweets from different json input file instead of default twitter 'tweets.js' or 'tweets.json' (priority if exists)",
         "\t-a,  --tweets-all             Get all tweets (further operations below will depend on this)",
         "\t     --date-from              Filter tweets from date/time, see: https://secure.php.net/manual/en/function.strtotime.php",
         "\t     --date-to                Filter tweets up-to date/time, see: https://secure.php.net/manual/en/function.strtotime.php ",
@@ -261,7 +264,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\t     --regexp='/<pattern>/i'  Filter tweet text on regular expression, i.e /(google)/i see https://secure.php.net/manual/en/function.preg-match.php",
         "\t     --regexp-save=name       Save --regexp results in the tweet under the key 'regexps' using the key/id name given",
         "\t     --thread=id              Returned tweets for the thread with id",
-        "\t     --threads-tweets={n}     When exporting markdown, save threads to markdown files which have a minimum of n tweets",
+        "\t     --threads-tweets={n}     *BROKEN* When exporting markdown, save threads to markdown files which have a minimum of n tweets",
         "\nExamples:",
         "\nReport duplicate tweet media files and output to 'dupes.json':",
             "\ttweets.php -fdupes.json --dupes",
@@ -273,10 +276,10 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\ttweets.php --list-users",
         "\nShow javascript files in backup folder:",
             "\ttweets.php -v --list-js",
-        "\nResolve all URLs in 'tweet.js' file, writing output to 'tweet.json':",
-            "\ttweets.php -v -u --filename=tweet.json",
-        "\nResolve all URLs in 'tweet.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweet.json':",
-            "\ttweets.php -u --filename=tweet.json -g=export/grailbird",
+        "\nResolve all URLs in 'tweets.js' file, writing output to 'tweets.json':",
+            "\ttweets.php -v -u --filename=tweets.json",
+        "\nResolve all URLs in 'tweets.js' file, writing output to grailbird files in 'grailbird' folder and also 'tweets.json':",
+            "\ttweets.php -u --filename=tweets.json -g=export/grailbird",
         "\nGet tweets from 1 Jan 2017 to 'last friday', only id, created and text keys:",
             "\ttweets.php -d -v -o -u --keys-filter=id,created_at,text,files --date-from '2017-01-01' --date-to='last friday'",
         "\nList URLs for which there are missing local media files:",
@@ -313,6 +316,10 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
             "\ttweets.php -v -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --no-retweets --no-mentions",
         "\nExport only media tweets only':",
             "\ttweets.php -v -g=www/vijinho/ --media-prefix='/vijinho/' --grailbird-media --media-only",
+        "\nExport the tweet thread 967915766195609600 as a markdown file in the current directory:",
+            "\ttweets.php -v --no-retweets --no-mentions --format=md --thread=967915766195609600 --filename=967915766195609600.md",
+        "\nExport the tweet thread 967915766195609600 as a markdown file with media in the directory 967915766195609600:",
+            "\ttweets.php -v --no-retweets --no-mentions --format=md --thread=967915766195609600 --filename=967915766195609600/967915766195609600.md --copy-media=967915766195609600",
         "\nExport the tweet thread 967915766195609600 as grailbird export files, to tweets to thread.json and folder called thread:",
             "\ttweets.php -v --thread=967915766195609600 --filename=www/thread/data/js/thread.json -g=www/thread/ --media-prefix='/thread/' --grailbird-media",
         "\nExport the tweet thread 967915766195609600 as a js file test/test.json, and copy media files too:",
@@ -320,7 +327,7 @@ if (empty($options) || array_key_exists('h', $options) || array_key_exists('help
         "\nExport the tweet thread 967915766195609600 as markdown, and copy media files too:",
             "\ttweets.php -d -v --dir=vijinho --thread=967915766195609600 --filename=thread/vijinho_967915766195609600_md/item.md --media-prefix=/vijinho_967915766195609600_md/ --copy-media=thread/vijinho_967915766195609600_md --format=md",
         "\nResolve URLs from tweets.js/tweets.json file and create a complete grailbird-data export, creating a new tweets.json file after to",
-            "\ttweets.php -v -d  --date-from '2019-05-01' --urls-expand --urls-resolve --grailbird-media --media-prefix='/' --grailbird=grailbird --filename='tweet.json'",
+            "\ttweets.php -v -d  --date-from '2019-05-01' --urls-expand --urls-resolve --grailbird-media --media-prefix='/' --grailbird=grailbird --filename='tweets.json'",
         "\nGenerate markdown output file of all tweets except RTs and mentions for threads which have at least 10 tweets",
             "\ttweets.php -v -d --no-retweets --no-mentions --format=md --filename=output.md --threads-tweets=10",
     ]) . "\n";
@@ -444,9 +451,9 @@ if (!empty($options['i'])) {
 } elseif (!empty($options['tweets-file'])) {
     $tweets_file = $options['tweets-file'];
 } else {
-    $tweets_file = 'tweet.js';
-    if (file_exists('tweet.json')) {
-        $tweets_file = 'tweet.json';
+    $tweets_file = 'tweets.js';
+    if (file_exists('tweets.json')) {
+        $tweets_file = 'tweets.json';
     }
 }
 
@@ -461,7 +468,7 @@ if (!empty($options['f'])) {
 } elseif (!empty($options['filename'])) {
     $output_filename = $options['filename'];
 }
-if (empty($output_filename)) {
+if (empty($output_filename) || is_array($output_filename)) {
     $output_filename = 'output.json';
 }
 if (!empty($output_filename)) {
@@ -840,7 +847,7 @@ if ($do['grailbird-import']) {
                 $tweets[$tweet_id] = array_replace_recursive($tweets[$tweet_id],
                     $tweet);
 
-                // we need to remove the 'retweeted_status' entry to the top level to match 'tweet.js'
+                // we need to remove the 'retweeted_status' entry to the top level to match 'tweets.js'
                 if (array_key_exists('retweeted_status', $tweet)) {
                     //$tweet['text'] = sprintf('RT @%s: %s', $tweet_rt['user']['screen_name'], $tweet_rt['text']);
                     $tweet_rt       = $tweet['retweeted_status'];
@@ -895,6 +902,8 @@ if ($do['grailbird']) {
 // copy files to target
 if ($do['grailbird-media']) {
     $do['copy-media'] = $grailbird_dir;
+} else if (!empty($thread_id) && $thread_id > 0) {
+    $do['copy-media'] = $thread_id;
 }
 
 //-----------------------------------------------------------------------------
@@ -1168,7 +1177,7 @@ if (!empty($tweets) && is_array($tweets)) {
 
         // update users array
         // get user from retweeted_status/user_mentions, if exists, add/replace
-        // NOTE: this only exists in the old/standard twitter backup files, not in the huge tweet.js file
+        // NOTE: this only exists in the old/standard twitter backup files, not in the huge tweets.js file
         // where the retweeted_status tweet is actually stored at the top-level
         // if using therefore with --grailbird-import it will get executed
         if (array_key_exists('retweeted_status', $tweet)) {
@@ -2726,13 +2735,13 @@ if ('md' == OUTPUT_FORMAT) {
     $threaded = [];
     $threads_file = 'threads.json';
     verbose(sprintf("Loading threads details from '%s'", $threads_file));
-    $threaded      = json_load($threads_file);
+    //$threaded      = json_load($threads_file);
     if (empty($threaded) || is_string($threaded)) {
         $threaded = [];
     } else {
-        verbose('Threaded tweets loaded: %d', count($threaded));
+        verbose(sprintf('Threaded tweets loaded: %d', count($threaded)));
     }
-
+    
     if (empty($threaded)) {
       foreach ($tweets as $thread_id => $t) {
         $threads = [];
@@ -2741,8 +2750,8 @@ if ('md' == OUTPUT_FORMAT) {
         }
         $threads[$thread_id] = $t;
 
-        //debug("Working to get tweets for thread: $thread_id", $threads[$thread_id]);
-        //debug("Working to get tweets for thread: $thread_id");
+        debug("Working to get tweets for thread: $thread_id", $threads[$thread_id]);
+        debug("Working to get tweets for thread: $thread_id");
         // check is not in reply to
         get_root_thread2:
           $thread_id_before = $thread_id;
@@ -2784,18 +2793,19 @@ if ('md' == OUTPUT_FORMAT) {
           debug("Found tweets for thread: $thread_id");
           $threaded[$thread_id] = $threads;
       }
-    }
-    ksort($threaded);
-
-    foreach ($threaded as $thread_id => $thread) {
-        debug("Moving thread tweets: $thread_id");
-        foreach (array_keys($thread) as $id) {
-          if (array_key_exists($id, $tweets))
-            unset($tweets[$id]);
+    } else {
+    /*
+        foreach ($threaded as $thread_id => $thread) {
+            debug("Moving thread tweets: $thread_id");
+            foreach (array_keys($thread) as $id) {
+              if (array_key_exists($id, $tweets)) 
+                    unset($tweets[$id]);
+            }
+            foreach ($thread as $id => $tweet) {
+                $tweets[$id] = $tweet;
+            }
         }
-        foreach ($thread as $id => $tweet) {
-            $tweets[$id] = $tweet;
-        }
+     */
     }
 
     $i = 0;
@@ -2927,16 +2937,31 @@ if ('md' == OUTPUT_FORMAT) {
                 $ext = strtolower('.' . pathinfo($from, PATHINFO_EXTENSION));
                 $filename = sprintf("%s_%d%s", $i, $tweet['id'], $ext);
                 $tweet[$type][$filename] = $from;
-                switch ($type) {
-                    case 'images':
-                        $markdown[] = sprintf("![Image %d - %s](%s)", $i, $filename, $from);
-                        break;
-                    case 'files':
-                        $markdown[] = sprintf("[File %d - %s](%s)", $i, $filename, $from);
-                        break;
-                    case 'videos':
-                        $markdown[] = sprintf("[Video %d - %s](%s)", $i, $filename, $from);
-                        break;
+                
+                if (empty($do['copy-media'])) {
+                    switch ($type) {
+                        case 'images':
+                            $markdown[] = sprintf("![Image %d - %s](%s)", $i, $filename, $from);
+                            break;
+                        case 'files':
+                            $markdown[] = sprintf("[File %d - %s](%s)", $i, $filename, $from);
+                            break;
+                        case 'videos':
+                            $markdown[] = sprintf("[Video %d - %s](%s)", $i, $filename, $from);
+                            break;
+                    }
+                } else {
+                    switch ($type) {
+                        case 'images':
+                            $markdown[] = sprintf("![Image %d - %s](%s)", $i, $filename, $filename);
+                            break;
+                        case 'files':
+                            $markdown[] = sprintf("[File %d - %s](%s)", $i, $filename, $filename);
+                            break;
+                        case 'videos':
+                            $markdown[] = sprintf("[Video %d - %s](%s)", $i, $filename, $filename);
+                            break;
+                    }
                 }
             }
         }
@@ -2950,7 +2975,8 @@ if ('md' == OUTPUT_FORMAT) {
         $tweets[$id] = $tweet;
     }
 
-    // save tweets with markdown
+    // save tweets with markdown    
+    /*
     $save   = json_save($tweets_file, $tweets);
     if (true !== $save) {
         $errors[] = "\nFailed encoding JSON tweets file:\n\t$tweets_file\n";
@@ -2960,11 +2986,12 @@ if ('md' == OUTPUT_FORMAT) {
         verbose(sprintf("JSON written to tweets file:\n\t%s (%d bytes)\n",
                 $tweets_file, filesize($tweets_file)));
     }
-
+    */
+    
     // save threads to individual files
-    debug("Saving threads with more tweets than: $threads_tweets");
+    if (!empty($threads_tweets)) debug("Saving threads with more tweets than: $threads_tweets");
     foreach ($threaded as $thread_id => $thread) {
-        if (count($thread) < $threads_tweets) {
+        if (empty($threads_tweets) || count($thread) < $threads_tweets) {
             continue;
         }
         debug("Creating markdown file for thread: $thread_id");
@@ -3314,7 +3341,7 @@ function shell_execute($cmd)
     if (is_resource($process)) {
         $streams = [];
         foreach ($pipes as $p => $v) {
-            $streams[] = stream_get_contents($pipes[$p]);
+            $streams[] = @stream_get_contents($pipes[$p]);
         }
         proc_close($process);
         return [
@@ -3509,12 +3536,12 @@ function files_js($dir)
 /**
  * Count the number of tweets.
  *
- * @param string $dir      to search default filename 'tweet.js' for
+ * @param string $dir      to search default filename 'tweets.js' for
  * @param string $filename the filename containing the tweets
  *
  * @return int $data
  */
-function tweets_count($dir, $filename = 'tweet.js')
+function tweets_count($dir, $filename = 'tweets.js')
 {
     return count(json_load_twitter($dir, $filename));
 }
@@ -3705,7 +3732,7 @@ function json_load_twitter($dir, $filename, $key = 'id')
     }
     $data = to_charset(file_get_contents($files[$filename]));
 
-    // the twitter export file tweet.js begins with:
+    // the twitter export file tweets.js begins with:
     // window.YTD.tweet.part0 = [ {
     if ('window' == substr($data, 0, 6) || 'Grailbird' == substr($data, 0, 9)) {
         $data = substr($data, strpos($data, '['));
@@ -3884,51 +3911,6 @@ function url_resolve($url, $options = [])
             //goto url_resolve_recheck;
         }
     }
-    // same URl, loop!
-    if ($target_url == $url) {
-        /*
-        $cmd_wget_spider = sprintf(
-            "$wget --user-agent='' -t 2 -T 5 -v --spider %s",
-            escapeshellarg($url)
-        );
-        // try wget instead
-        $output          = shell_execute($cmd_wget_spider);
-        if (!empty($output) && is_array($output)) {
-            if (empty($output['stdin']) && empty($output['stdout']) && !empty($output['stderr'])) {
-                if (false !== stristr($output['stderr'], 'broken link')) {
-                    return -22;
-                } else {
-                    if (false !== stristr(
-                            $output['stderr'],
-                            'Remote file exists and could contain further links,'
-                        )
-                    ) {
-                        return $target_url;
-                    } elseif (preg_match_all(
-                            '/(?P<url>http[s]?:\/\/[^\s]+[^\.\s]+)/i',
-                            $output['stderr'], $matches
-                        )
-                    ) {
-                        // no URLs found
-                        if (!empty($matches['url'])) {
-                            foreach ($matches['url'] as $url) {
-                                $found_urls[$url] = $url;
-                            }
-                        }
-                        if (!empty($found_urls)) {
-                            if ($target_url !== $url) {
-                                $target_url = array_pop($found_urls);
-                                $url        = $target_url;
-                                debug("Rechecking with $i: $url");
-                                //goto url_resolve_recheck;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        */
-    }
     if ($status === 0 || ($status == 6 && !is_numeric($target_url)) && !empty($target_url)) {
         $curl_http_status = "$curl $curl_options -s -o /dev/null -w %{http_code} " . escapeshellarg($target_url);
         $output           = [];
@@ -4081,7 +4063,7 @@ function twitpic_download($url, $path, $mime_type = 'image/jpeg')
  */
 function markdown_escape($text) {
   return str_replace([
-    '\\', '-', '#', '*', '+', '`', '.', '[', ']', '(', ')', '!', '&', '<', '>', '_', '{', '}', ], [
-    '\\\\', '\-', '\#', '\*', '\+', '\`', '\.', '\[', '\]', '\(', '\)', '\!', '\&', '\<', '\>', '\_', '\{', '\}',
+    '\\', '-', '#', '*', '+', '`', '.', '[', ']', '(', ')', '!', '&', '<', '>', '_', '{', '}', '|'], [
+    '\\\\', '\-', '\#', '\*', '\+', '\`', '\.', '\[', '\]', '\(', '\)', '\!', '\&', '\<', '\>', '\_', '\{', '\}', '\|',
   ], $text);
 }
